@@ -1,0 +1,28 @@
+{
+  "_readme": "Copy to config/column_map.json and edit. The header names below are EXAMPLES - open your own export and replace them with your file's exact column headers. No broker export format is assumed.",
+  "kind": "cashflows",
+  "account_id": "MY-TFSA",
+  "account_name": "My TFSA",
+  "account_type": "TFSA",
+  "expected_currency": "CAD",
+  "date_format": "%Y-%m-%d",
+  "amounts_are_unsigned": false,
+  "columns": {
+    "date": "date",
+    "type": "transaction",
+    "amount": "amount",
+    "currency": "currency",
+    "description": "description"
+  },
+  "type_map": {
+    "CONT": "DEPOSIT",
+    "DEP": "DEPOSIT",
+    "WD": "WITHDRAWAL",
+    "TRFIN": "TRANSFER_IN",
+    "TRFOUT": "TRANSFER_OUT",
+    "DIV": "DIVIDEND",
+    "INT": "INTEREST",
+    "FEE": "FEE"
+  },
+  "ignore_types": ["BUY", "SELL"]
+}

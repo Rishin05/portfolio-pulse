@@ -1,0 +1,10 @@
+{
+  "_readme": "For a file with one end-of-day account value per row (e.g. values you copy from monthly statements or a balance-confirmation PDF into a spreadsheet). Header names are EXAMPLES.",
+  "kind": "snapshots",
+  "account_id": "MY-TFSA",
+  "account_name": "My TFSA",
+  "expected_currency": "CAD",
+  "date_format": "%Y-%m-%d",
+  "quality_flag": "reported",
+  "columns": { "date": "date", "value": "account_value", "currency": "currency" }
+}

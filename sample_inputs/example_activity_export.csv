@@ -1,0 +1,12 @@
+date,transaction,description,amount,currency
+2026-07-02,CONT,Contribution,500.00,CAD
+2026-07-02,BUY,Bought 3 XEQT,-98.40,CAD
+2026-07-15,DIV,XEQT distribution,4.12,CAD
+2026-07-15,DIV,XEQT distribution,4.12,CAD
+2026-07-20,WD,Withdrawal,"(200.00)",CAD
+2026-07-21,DEP,Deposit,abc,CAD
+2026-07-22,DEP,US deposit,100.00,USD
+2026-13-01,DEP,Bad date,50.00,CAD
+2026-07-25,FEE,Account fee,-1.50,CAD
+2026-07-28,BONUS,Unknown type,10.00,CAD
+2026-07-30,DEP,Deposit,,CAD
