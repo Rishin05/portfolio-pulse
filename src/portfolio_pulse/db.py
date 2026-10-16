@@ -158,8 +158,14 @@ def ensure_account(conn: sqlite3.Connection, account_id: str, display_name: str,
 
 
 def insert_ignore(conn: sqlite3.Connection, table: str, row: dict) -> bool:
-    """INSERT OR IGNORE one row. Returns True if a new row was written."""
+    """Insert one row, skipping it only if its key already exists. Returns True if written.
+
+    Uses ON CONFLICT DO NOTHING, not INSERT OR IGNORE: OR IGNORE also silently drops rows
+    that break CHECK / NOT NULL rules, which would hide bad data as "duplicates".
+    Here only duplicate keys are skipped; rule violations raise sqlite3.IntegrityError.
+    """
     cols = ", ".join(row)
     marks = ", ".join("?" for _ in row)
-    cur = conn.execute(f"INSERT OR IGNORE INTO {table} ({cols}) VALUES ({marks})", tuple(row.values()))
+    cur = conn.execute(f"INSERT INTO {table} ({cols}) VALUES ({marks}) ON CONFLICT DO NOTHING",
+                       tuple(row.values()))
     return cur.rowcount == 1
