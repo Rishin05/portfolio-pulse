@@ -1,0 +1,9 @@
+# Store text with LF line endings in git so every machine gets the same files.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+# Never treat these as text.
+*.db   binary
+*.pbix binary
+*.png  binary
+*.zip  binary
