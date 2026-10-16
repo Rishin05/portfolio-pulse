@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -11,7 +12,8 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_PATH = PROJECT_ROOT / "sql" / "schema.sql"
+MIGRATIONS_DIR = PROJECT_ROOT / "sql" / "migrations"
+MIGRATION_FILE = re.compile(r"^(\d{3})_[a-z0-9_]+\.sql$")   # e.g. 002_multi_broker.sql
 
 # Every source the project knows about, with the caveat shown in the report.
 SOURCES = [
@@ -45,15 +47,81 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     return conn
 
 
+class MigrationError(RuntimeError):
+    """The database schema and the migration files disagree, or a migration failed."""
+
+
+def list_migrations(migrations_dir: Path = MIGRATIONS_DIR) -> list[tuple[int, Path]]:
+    """Return (version, path) for every migration file, sorted by version."""
+    found: dict[int, Path] = {}
+    for path in sorted(migrations_dir.glob("*.sql")):
+        m = MIGRATION_FILE.match(path.name)
+        if not m:
+            raise MigrationError(f"Bad migration file name: {path.name} (expected NNN_lower_snake.sql)")
+        version = int(m.group(1))
+        if version in found:
+            raise MigrationError(
+                f"Two migrations share version {version:03d}: {found[version].name}, {path.name}")
+        found[version] = path
+    return sorted(found.items())
+
+
+def current_schema_version(conn: sqlite3.Connection) -> int:
+    row = conn.execute("SELECT COALESCE(MAX(version), 0) FROM schema_version").fetchone()
+    return int(row[0])
+
+
+def migrate(conn: sqlite3.Connection, migrations_dir: Path = MIGRATIONS_DIR) -> list[str]:
+    """Apply every migration not yet recorded in schema_version, oldest first.
+
+    Each file runs in its own transaction together with its schema_version row, so a
+    failure leaves the database exactly as it was before that file. Returns the names applied.
+    Note: PRAGMA statements inside a migration are no-ops (SQLite ignores most PRAGMAs in a
+    transaction); connect() sets foreign_keys instead.
+    """
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS schema_version ("
+        " version INTEGER PRIMARY KEY,"
+        " name TEXT NOT NULL,"
+        " applied_at_utc TEXT NOT NULL)"
+    )
+    conn.commit()
+    migrations = list_migrations(migrations_dir)
+    latest = migrations[-1][0] if migrations else 0
+    applied = {row[0] for row in conn.execute("SELECT version FROM schema_version")}
+    if applied and max(applied) > latest:
+        raise MigrationError(
+            f"Database is at version {max(applied)} but the newest migration file is "
+            f"{latest:03d}. Update the code before using this database.")
+
+    done: list[str] = []
+    for version, path in migrations:
+        if version in applied:
+            continue
+        script = path.read_text(encoding="utf-8")
+        # Safe to inline: version and stem were validated by MIGRATION_FILE (digits, a-z, _).
+        record = (f"INSERT INTO schema_version (version, name, applied_at_utc) "
+                  f"VALUES ({version}, '{path.stem}', '{utc_now()}');")
+        try:
+            conn.executescript(f"BEGIN;\n{script}\n{record}\nCOMMIT;")
+        except sqlite3.Error as exc:
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise MigrationError(f"Migration {path.name} failed and was rolled back: {exc}") from exc
+        log.info("Applied migration %s", path.name)
+        done.append(path.name)
+    return done
+
+
 def init_db(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    migrate(conn)
     conn.executemany(
         "INSERT OR IGNORE INTO source (source_id, display_name, kind, is_demo, usage_note) "
         "VALUES (?,?,?,?,?)",
         SOURCES,
     )
     conn.commit()
-    log.info("Database schema is ready.")
+    log.info("Database schema is ready (version %s).", current_schema_version(conn))
 
 
 def start_batch(conn: sqlite3.Connection, source_id: str, description: str,
