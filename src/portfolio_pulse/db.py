@@ -25,6 +25,10 @@ SOURCES = [
      "Headlines and links only. Free plan; check Finnhub's terms before sharing publicly."),
     ("google_news_rss", "Google News RSS", "rss", 0,
      "Personal, non-commercial use. Headlines and links only; attribute the publisher."),
+    ("snaptrade", "SnapTrade brokerage API (read-only)", "api", 0,
+     "Read-only account data via SnapTrade's own connection flow. No brokerage credentials stored here."),
+    ("boc_valet", "Bank of Canada Valet API", "api", 0,
+     "Daily reference exchange rates. A benchmark only, not the rate any broker charged."),
 ]
 
 

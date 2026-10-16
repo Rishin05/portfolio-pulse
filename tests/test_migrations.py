@@ -3,6 +3,8 @@ import pytest
 
 from portfolio_pulse import db
 
+LATEST = db.list_migrations()[-1][0]   # newest migration number, so tests don't need editing per migration
+
 
 @pytest.fixture
 def fresh_conn(tmp_path):
@@ -17,15 +19,17 @@ def tables(conn):
 
 def test_fresh_database_gets_baseline(fresh_conn):
     db.init_db(fresh_conn)
-    assert db.current_schema_version(fresh_conn) == 1
-    assert {"source", "account", "daily_snapshot", "cash_flow", "schema_version"} <= tables(fresh_conn)
+    assert db.current_schema_version(fresh_conn) == LATEST
+    assert {"source", "account", "daily_snapshot", "cash_flow", "schema_version",
+            "institution", "connection", "activity", "holding_snapshot",
+            "fx_rate", "fee_schedule"} <= tables(fresh_conn)
 
 
 def test_rerun_applies_nothing(fresh_conn):
     db.init_db(fresh_conn)
     assert db.migrate(fresh_conn) == []
     db.init_db(fresh_conn)
-    assert fresh_conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()[0] == 1
+    assert fresh_conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()[0] == LATEST
     assert fresh_conn.execute("SELECT COUNT(*) FROM source").fetchone()[0] == len(db.SOURCES)
 
 
@@ -35,8 +39,8 @@ def test_pre_versioning_database_is_upgraded_in_place(fresh_conn):
     db.ensure_account(fresh_conn, "demo-tfsa", "Demo TFSA", "TFSA", "CAD", True)
     fresh_conn.commit()
     db.init_db(fresh_conn)
-    assert db.current_schema_version(fresh_conn) == 1
-    assert fresh_conn.execute("SELECT COUNT(*) FROM account").fetchone()[0] == 1   # data kept
+    assert db.current_schema_version(fresh_conn) == LATEST
+    assert fresh_conn.execute("SELECT COUNT(*) FROM account").fetchone()[0] == 1   # data kept  # data kept
 
 
 def test_failed_migration_rolls_back(tmp_path, fresh_conn):
