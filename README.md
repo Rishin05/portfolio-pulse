@@ -11,19 +11,21 @@ and down days, and a watchlist news feed with links to original articles.
 
 ```
 portfolio-pulse/
-├── sql/schema.sql                  tables + v_daily_performance view
-├── src/portfolio_pulse/
-│   ├── db.py                       connection, schema, sources, batches, stable IDs
-│   ├── synthetic.py                reproducible demo portfolio, cash flows, news
-│   ├── csv_import.py               mapping-driven CSV importer with validation
-│   ├── news.py                     Finnhub API / Google News RSS / demo fallback
-│   ├── export.py                   CSVs for Power BI + data-quality table
-│   └── cli.py                      python -m portfolio_pulse <command>
-├── config/                         column-mapping examples (copy and edit)
-├── sample_inputs/                  small CSVs with deliberate errors for testing
-├── scripts/run_daily.bat|.sh       scheduler entry points
-├── tests/                          pytest suite (20 tests)
-└── data/                           inbox/ (your exports), powerbi/ (outputs) - git-ignored
+|-- sql/migrations/                 numbered schema migrations (001 baseline, 002 multi-broker)
+|-- src/portfolio_pulse/
+|   |-- db.py                       connection, migrations, sources, batches, stable IDs
+|   |-- synthetic.py                reproducible demo portfolio, cash flows, news
+|   |-- synthetic_brokers.py        demo brokers, USD account, activity, holdings, FX, fees
+|   |-- csv_import.py               mapping-driven CSV importer with validation
+|   |-- news.py                     Finnhub API / Google News RSS / demo fallback
+|   |-- export.py                   CSVs for Power BI + data-quality table
+|   `-- cli.py                      python -m portfolio_pulse <command>
+|-- docs/                           data_dictionary.md, export_contract.md
+|-- config/                         column-mapping examples (copy and edit)
+|-- sample_inputs/                  small CSVs with deliberate errors for testing
+|-- scripts/run_daily.bat|.sh       scheduler entry points
+|-- tests/                          pytest suite (49 tests)
+`-- data/                           inbox/ (your exports), powerbi/ (outputs) - git-ignored
 ```
 
 ## Setup
