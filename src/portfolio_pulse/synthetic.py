@@ -10,7 +10,7 @@ import random
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 
-from . import db
+from . import db, synthetic_brokers
 
 log = logging.getLogger(__name__)
 
@@ -139,7 +139,10 @@ def load_demo(conn, seed: int = 42) -> dict:
             "article_id": db.stable_id(n["url"].lower()), **n, "fetched_at_utc": now,
             "source_id": "synthetic", "batch_id": batch})
         ins, skip = ins + new, skip + (not new)
-    total = len(days) + len(flows) + 3 * 8
+    mb_read, mb_ins, mb_skip = synthetic_brokers.load_multi_broker(
+        conn, seed, days, flows, batch, now, DEMO_ACCOUNT)
+    ins, skip = ins + mb_ins, skip + mb_skip
+    total = len(days) + len(flows) + 3 * 8 + mb_read
     db.finish_batch(conn, batch, read=total, inserted=ins, skipped=skip, rejected=0)
     conn.commit()
     log.info("Demo data: %s new rows, %s already present (seed=%s).", ins, skip, seed)
