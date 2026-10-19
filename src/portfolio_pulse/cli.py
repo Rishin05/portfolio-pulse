@@ -6,7 +6,8 @@ Commands
   import-csv FILE --map JSON    import your own export (add --dry-run to validate only)
   fetch-news [--source ...]     pull watchlist headlines (auto | finnhub | rss | none)
   export                        write CSVs for Power BI to data/powerbi/
-  run-daily                     fetch-news + import everything in data/inbox/ + export
+    run-daily                     fetch-news + import everything in data/inbox/ + export
+  snaptrade-connect [--broker]  print a one-time, read-only SnapTrade Connection Portal link
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from . import csv_import, db, export, news, synthetic
+from . import csv_import, db, export, news, snaptrade_readonly, synthetic
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -51,6 +52,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("export")
     r = sub.add_parser("run-daily"); r.add_argument("--map", default=str(ROOT / "config" / "column_map.json"))
     r.add_argument("--source", default="auto", choices=["auto", "finnhub", "rss", "none"])
+    c = sub.add_parser("snaptrade-connect")
+    c.add_argument("--broker", default=None,
+                   help="optional SnapTrade broker slug; omit to choose in the portal")
     args = p.parse_args(argv)
     setup_logging(args.verbose)
 
@@ -74,7 +78,10 @@ def main(argv: list[str] | None = None) -> int:
             export.export_all(conn, ROOT / "data" / "powerbi")
         elif args.cmd == "run-daily":
             run_daily(conn, Path(args.map), args.source)
-    except (csv_import.ImportConfigError, FileNotFoundError, news.NewsSourceUnavailable) as exc:
+        elif args.cmd == "snaptrade-connect":
+            snaptrade_connect(args.broker)
+    except (csv_import.ImportConfigError, FileNotFoundError, news.NewsSourceUnavailable,
+            snaptrade_readonly.SnapTradeError) as exc:
         log.error("%s", exc)
         return 2
     finally:
@@ -97,3 +104,20 @@ def run_daily(conn, map_path: Path, source: str) -> None:
         for f in files:
             csv_import.import_csv(conn, f, mapping, rejects_dir=ROOT / "data" / "rejects")
     export.export_all(conn, ROOT / "data" / "powerbi")
+
+
+
+def snaptrade_connect(broker: str | None) -> None:
+    """Print a one-time, read-only Connection Portal link.
+
+    The link is printed (stdout only) and never logged: it is a short-lived
+    login URL and must not end up in logs/portfolio_pulse.log.
+    """
+    client = snaptrade_readonly.ReadOnlySnapTrade()
+    url = client.connection_portal_url(broker=broker)
+    print("\nOpen this link in your browser within 5 minutes to connect a brokerage "
+          "(read-only access):\n")
+    print(url)
+    print("\nComplete the broker login inside SnapTrade, then close the tab. "
+          "No data is downloaded until a later step.\n")
+    log.info("Generated a read-only SnapTrade Connection Portal link (link not logged).")
