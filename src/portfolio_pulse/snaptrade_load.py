@@ -11,7 +11,7 @@ import logging
 import re
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -25,6 +25,8 @@ log = logging.getLogger(__name__)
 SOURCE_ID = "snaptrade"
 MARKET_TZ = ZoneInfo("America/Toronto")
 FOLDER_STAMP = re.compile(r"^\d{8}T\d{6}Z$")
+MARKET_OPEN = time(9, 30)
+CLOSE_CUTOFF = time(16, 30)   # 16:00 close + 30 min for brokers to settle values
 
 
 class RawDataError(RuntimeError):
@@ -34,7 +36,7 @@ class RawDataError(RuntimeError):
 @dataclass
 class LoadResult:
     folder: Path
-    as_of_date: str
+    as_of_date: str | None   # None = intraday pull: no snapshot recorded
     batch_id: str | None = None
     read: int = 0
     inserted: int = 0
@@ -50,13 +52,26 @@ def latest_raw_folder(raw_root: Path) -> Path:
     return folders[-1]
 
 
-def snapshot_date(folder_name: str) -> str:
-    """UTC pull stamp -> Toronto calendar date; Sat/Sun roll back to Friday."""
+def snapshot_date(folder_name: str) -> str | None:
+    """Which market day a pull's values describe (weekday calendar, no holidays).
+
+    weekend                -> previous Friday
+    weekday before 09:30   -> previous weekday (values are the last close)
+    weekday 09:30-16:30    -> None (intraday: no snapshot)
+    weekday after 16:30    -> that day
+    """
     pulled = datetime.strptime(folder_name, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
-    local = pulled.astimezone(MARKET_TZ).date()
-    while local.weekday() >= 5:
-        local -= timedelta(days=1)
-    return local.isoformat()
+    local = pulled.astimezone(MARKET_TZ)
+    day, clock = local.date(), local.time()
+    if day.weekday() < 5:
+        if clock >= CLOSE_CUTOFF:
+            return day.isoformat()
+        if clock >= MARKET_OPEN:
+            return None
+        day -= timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= timedelta(days=1)
+    return day.isoformat()
 
 
 def slugify(text: Any) -> str:
@@ -240,6 +255,13 @@ def load_folder(conn: sqlite3.Connection, folder: Path, *, dry_run: bool = False
             })
             conn.execute("UPDATE account SET institution_id=?, connection_id=? "
                          "WHERE account_id=?", (slug, connection_id, account_id))
+
+            if as_of is None:
+                res.warnings.append(
+                    f"{account_id}: pulled during market hours; no snapshot or cash recorded "
+                    "(values are only snapshotted after 16:30 Toronto).")
+                _load_activities(res, conn, folder, st_acct, account_id, flag, now)
+                continue
 
             value = _money(net_value.get("amount"))
             if value is None or value < 0:

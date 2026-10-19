@@ -6,7 +6,7 @@ Commands
   import-csv FILE --map JSON    import your own export (add --dry-run to validate only)
   fetch-news [--source ...]     pull watchlist headlines (auto | finnhub | rss | none)
   export                        write CSVs for Power BI to data/powerbi/
-    run-daily                     fetch-news + import everything in data/inbox/ + export
+  run-daily                     SnapTrade pull+load (if keys set) + fetch-news + data/inbox/ + export
   snaptrade-connect [--broker]  print a one-time, read-only SnapTrade Connection Portal link
   snaptrade-pull [--dry-run]    save masked raw SnapTrade JSON to data/raw/snaptrade/
   snaptrade-load [--dry-run]    load the newest raw pull into the database (re-run: 0 new rows)
@@ -105,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run_daily(conn, map_path: Path, source: str) -> None:
+    snaptrade_daily(conn)   # optional; never blocks the rest
     try:
         news.fetch_watchlist_news(conn, source)
     except news.NewsSourceUnavailable as exc:
@@ -169,3 +170,21 @@ def snaptrade_load_cmd(conn, folder: str | None, dry_run: bool) -> None:
              res.read, res.inserted, res.skipped, res.rejected)
     for w in res.warnings:
         log.warning(w)
+
+        
+
+def snaptrade_daily(conn) -> None:
+    """Pull + load SnapTrade if keys are set. Failures are logged, never fatal."""
+    try:
+        snaptrade_readonly.load_credentials()
+    except snaptrade_readonly.SnapTradeConfigError:
+        log.info("SnapTrade step skipped: no keys in .env (optional).")
+        return
+    try:
+        client = snaptrade_readonly.ReadOnlySnapTrade()
+        res = snaptrade_sync.pull_raw(client, ROOT / "data" / "raw" / "snaptrade")
+        for err in res.errors:
+            log.warning(err)
+        snaptrade_load_cmd(conn, str(res.folder), dry_run=False)
+    except (snaptrade_readonly.SnapTradeError, snaptrade_load.RawDataError) as exc:
+        log.warning("SnapTrade step skipped: %s", exc)

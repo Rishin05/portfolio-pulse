@@ -74,3 +74,23 @@ def test_dry_run_writes_nothing(conn, raw_folder):
     assert res.inserted == 9
     assert conn.execute("SELECT COUNT(*) FROM activity").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM import_batch").fetchone()[0] == 0
+
+    
+
+@pytest.mark.parametrize("stamp,expected", [
+    ("20261019T110000Z", "2026-10-16"),   # Mon 07:00 Toronto, pre-open -> Friday
+    ("20261019T150000Z", None),           # Mon 11:00 Toronto, intraday -> no snapshot
+    ("20261019T210000Z", "2026-10-19"),   # Mon 17:00 Toronto, after close -> Monday
+    ("20261017T160000Z", "2026-10-16"),   # Saturday -> Friday
+])
+def test_snapshot_date_rules(stamp, expected):
+    assert snaptrade_load.snapshot_date(stamp) == expected
+
+
+def test_intraday_pull_skips_snapshot_but_loads_activities(conn, raw_folder):
+    intraday = raw_folder.rename(raw_folder.with_name("20261020T150000Z"))   # Tue 11:00 Toronto
+    res = snaptrade_load.load_folder(conn, intraday)
+    assert res.as_of_date is None
+    assert conn.execute("SELECT COUNT(*) FROM daily_snapshot").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM holding_snapshot").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM activity").fetchone()[0] == 4
