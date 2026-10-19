@@ -55,11 +55,11 @@ cp .env.example .env
 ## Run it
 
 ```bash
-python -m pytest -q                         # 20 tests should pass
+python -m pytest -q                         # 49 tests should pass
 python -m portfolio_pulse demo              # load synthetic data (re-run: 0 new rows)
 python -m portfolio_pulse export            # writes data/powerbi/*.csv
 ```
-
+See `docs/data_dictionary.md` for every table and column, and `docs/export_contract.md` for the exact CSVs Power BI receives.
 Then open Power BI Desktop → Get data → Folder (or Text/CSV) → `data/powerbi/`.
 
 ### Your own data (optional)
