@@ -8,7 +8,9 @@ Commands
   export                        write CSVs for Power BI to data/powerbi/
     run-daily                     fetch-news + import everything in data/inbox/ + export
   snaptrade-connect [--broker]  print a one-time, read-only SnapTrade Connection Portal link
+  snaptrade-pull [--dry-run]    save masked raw SnapTrade JSON to data/raw/snaptrade/
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,7 +21,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from . import csv_import, db, export, news, snaptrade_readonly, synthetic
+from . import csv_import, db, export, news, snaptrade_readonly, snaptrade_sync, synthetic
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -55,6 +57,10 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("snaptrade-connect")
     c.add_argument("--broker", default=None,
                    help="optional SnapTrade broker slug; omit to choose in the portal")
+    sp = sub.add_parser("snaptrade-pull")
+    sp.add_argument("--dry-run", action="store_true", help="fetch and count, write nothing")
+    sp.add_argument("--show-shape", action="store_true",
+                    help="print response keys/types only (no values) for debugging")
     args = p.parse_args(argv)
     setup_logging(args.verbose)
 
@@ -80,6 +86,8 @@ def main(argv: list[str] | None = None) -> int:
             run_daily(conn, Path(args.map), args.source)
         elif args.cmd == "snaptrade-connect":
             snaptrade_connect(args.broker)
+        elif args.cmd == "snaptrade-pull":
+            snaptrade_pull(args.dry_run, args.show_shape)
     except (csv_import.ImportConfigError, FileNotFoundError, news.NewsSourceUnavailable,
             snaptrade_readonly.SnapTradeError) as exc:
         log.error("%s", exc)
@@ -121,3 +129,23 @@ def snaptrade_connect(broker: str | None) -> None:
     print("\nComplete the broker login inside SnapTrade, then close the tab. "
           "No data is downloaded until a later step.\n")
     log.info("Generated a read-only SnapTrade Connection Portal link (link not logged).")
+
+
+
+def snaptrade_pull(dry_run: bool, show_shape: bool) -> None:
+    """Fetch read-only SnapTrade data and save masked raw JSON."""
+    import json
+
+    client = snaptrade_readonly.ReadOnlySnapTrade()
+    res = snaptrade_sync.pull_raw(client, ROOT / "data" / "raw" / "snaptrade", dry_run=dry_run)
+    summary = (f"{res.accounts} account(s), {res.positions} position(s), "
+               f"{res.activities} activity row(s)")
+    if dry_run:
+        log.info("SnapTrade pull (dry run): %s; nothing written.", summary)
+    else:
+        log.info("SnapTrade pull: %s; saved %s file(s) to %s", summary, len(res.files),
+                 res.folder.relative_to(ROOT))
+    for err in res.errors:
+        log.warning(err)
+    if show_shape:
+        print(json.dumps(res.shapes, indent=2))
