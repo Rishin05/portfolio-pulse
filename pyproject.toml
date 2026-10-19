@@ -7,7 +7,8 @@ name = "portfolio-pulse"
 version = "0.1.0"
 description = "Educational portfolio analytics: daily performance, cash flows and watchlist news. Not financial advice."
 requires-python = ">=3.12"
-dependencies = ["pandas>=2.2,<4", "requests>=2.32,<3", "python-dotenv>=1.0,<2"]
+dependencies = ["pandas>=2.2,<4", "requests>=2.32,<3", "python-dotenv>=1.0,<2",
+                "snaptrade-python-sdk>=13.0.37,<14"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
