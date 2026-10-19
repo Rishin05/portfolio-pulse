@@ -29,6 +29,8 @@ SOURCES = [
      "Read-only account data via SnapTrade's own connection flow. No brokerage credentials stored here."),
     ("boc_valet", "Bank of Canada Valet API", "api", 0,
      "Daily reference exchange rates. A benchmark only, not the rate any broker charged."),
+    ("alpha_vantage", "Alpha Vantage price API", "api", 0,
+     "Daily prices used to reconstruct past values. Estimates only; free tier is 25 requests/day."),
 ]
 
 

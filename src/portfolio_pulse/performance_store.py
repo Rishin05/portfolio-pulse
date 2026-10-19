@@ -53,7 +53,10 @@ def run_and_save(conn):
 
 
 def _money(v) -> str:
-    return "n/a" if v is None else f"${v:,.2f}"
+    if v is None:
+        return "n/a"
+    v = round(v, 2) + 0.0
+    return f"-${-v:,.2f}" if v < 0 else f"${v:,.2f}"
 
 
 def _pct(v) -> str:
