@@ -6,7 +6,8 @@ Commands
   import-csv FILE --map JSON    import your own export (add --dry-run to validate only)
   fetch-news [--source ...]     pull watchlist headlines (auto | finnhub | rss | none)
   export                        write CSVs for Power BI to data/powerbi/
-  run-daily                     SnapTrade pull+load (if keys set) + fetch-news + data/inbox/ + export
+  fetch-fx [--start] [--end]    cache Bank of Canada daily FX rates (only dates not yet stored)
+  run-daily                     SnapTrade pull+load (if keys set) + BoC FX + fetch-news + data/inbox/ + export
   snaptrade-connect [--broker]  print a one-time, read-only SnapTrade Connection Portal link
   snaptrade-pull [--dry-run]    save masked raw SnapTrade JSON to data/raw/snaptrade/
   snaptrade-load [--dry-run]    load the newest raw pull into the database (re-run: 0 new rows)
@@ -18,11 +19,12 @@ import argparse
 import logging
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from . import (csv_import, db, export, news, snaptrade_load, snaptrade_readonly,
+from . import (csv_import, db, export, fx_rates, news, snaptrade_load, snaptrade_readonly,
                snaptrade_sync, synthetic)
 
 ROOT = db.PROJECT_ROOT
@@ -40,6 +42,14 @@ def setup_logging(verbose: bool) -> None:
     logging.getLogger("urllib3").setLevel(logging.WARNING)   # never echo request URLs/headers
 
 
+def _iso_date(text: str) -> date:
+    """argparse type: YYYY-MM-DD with a friendly error."""
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a date like 2026-10-19, got {text!r}") from None
+
+
 def main(argv: list[str] | None = None) -> int:
     load_dotenv(ROOT / ".env")   # secrets live in .env, which .gitignore excludes
     p = argparse.ArgumentParser(prog="portfolio_pulse", description="Educational portfolio analytics (not advice).")
@@ -54,6 +64,11 @@ def main(argv: list[str] | None = None) -> int:
                                                      choices=["auto", "finnhub", "rss", "none"])
     n.add_argument("--dry-run", action="store_true")
     sub.add_parser("export")
+    fx = sub.add_parser("fetch-fx")
+    fx.add_argument("--start", type=_iso_date, default=None,
+                    help="YYYY-MM-DD; default: day after the latest stored rate (or ~400 days back)")
+    fx.add_argument("--end", type=_iso_date, default=None, help="YYYY-MM-DD; default: today")
+    fx.add_argument("--dry-run", action="store_true", help="fetch and count, write nothing")
     r = sub.add_parser("run-daily"); r.add_argument("--map", default=str(ROOT / "config" / "column_map.json"))
     r.add_argument("--source", default="auto", choices=["auto", "finnhub", "rss", "none"])
     c = sub.add_parser("snaptrade-connect")
@@ -87,6 +102,9 @@ def main(argv: list[str] | None = None) -> int:
             news.fetch_watchlist_news(conn, args.source, dry_run=args.dry_run)
         elif args.cmd == "export":
             export.export_all(conn, ROOT / "data" / "powerbi")
+        elif args.cmd == "fetch-fx":
+            if not fetch_fx(conn, args.start, args.end, args.dry_run):
+                return 2
         elif args.cmd == "run-daily":
             run_daily(conn, Path(args.map), args.source)
         elif args.cmd == "snaptrade-connect":
@@ -104,8 +122,18 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def fetch_fx(conn, start: date | None, end: date | None, dry_run: bool = False) -> bool:
+    """Sync BoC rates. Returns False only if the Bank of Canada couldn't be reached."""
+    res = fx_rates.sync_boc_rates(conn, start=start, end=end, dry_run=dry_run)
+    if res["status"] == "unavailable":
+        log.error("Bank of Canada rates unavailable. Check your connection and try again.")
+        return False
+    return True
+
+
 def run_daily(conn, map_path: Path, source: str) -> None:
     snaptrade_daily(conn)   # optional; never blocks the rest
+    fetch_fx(conn, None, None)   # cached; logs a warning and carries on if offline
     try:
         news.fetch_watchlist_news(conn, source)
     except news.NewsSourceUnavailable as exc:
