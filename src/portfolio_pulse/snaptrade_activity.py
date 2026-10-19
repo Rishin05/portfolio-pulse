@@ -8,8 +8,16 @@ Categories (used by the performance engine in Phase 3):
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from datetime import datetime, time
 from typing import Any
+from zoneinfo import ZoneInfo
+
+from . import db
+
+MARKET_TZ = ZoneInfo("America/Toronto")
+NO_CASH_TYPES = frozenset({"SPLIT"})   # may legitimately have no cash amount
 
 # SnapTrade type -> (our activity_type, category).
 # Source: SnapTrade API reference, getAccountActivities (checked 2026-10-15).
@@ -78,3 +86,89 @@ def map_type(raw_type: Any, amount: Any = None, units: Any = None) -> TypeMappin
         return TypeMapping("OTHER", "review", True,
                            f"{key}: documented SnapTrade type, return treatment not decided yet")
     return TypeMapping("OTHER", "review", True, f"Unknown type {str(raw_type)!r} (broker's own label)")
+
+
+
+def local_date(value: Any) -> str | None:
+    """Broker timestamp -> YYYY-MM-DD.
+
+    Exactly midnight means the broker gave a date only: keep it as-is (converting
+    2026-10-16T00:00Z to Toronto would wrongly give the 15th). Real intraday times
+    convert to the Toronto calendar date.
+    """
+    if not value:
+        return None
+    text = str(value)
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text[:10] if re.match(r"^\d{4}-\d{2}-\d{2}", text) else None
+    if dt.tzinfo is None or dt.time() == time(0, 0):
+        return dt.date().isoformat()
+    return dt.astimezone(MARKET_TZ).date().isoformat()
+
+
+def normalize_activity(item: dict, account_id: str, quality_flag: str
+                       ) -> tuple[dict | None, str | None, TypeMapping]:
+    """One raw SnapTrade activity -> (activity row, None, mapping) or (None, problem, mapping).
+
+    source_id, batch_id and loaded_at_utc are added by the loader.
+    """
+    raw_type = str(item.get("type") or "").strip()
+    mapping = map_type(raw_type, item.get("amount"), item.get("units"))
+    provider_id = item.get("id")
+    if not provider_id:
+        return None, "MISSING provider id", mapping
+    if not raw_type:
+        return None, "MISSING type", mapping
+    code = str((item.get("currency") or {}).get("code") or "").upper()
+    if len(code) != 3:
+        return None, f"{raw_type}: MISSING fiat currency (may be crypto-denominated)", mapping
+    trade_date = local_date(item.get("trade_date"))
+    if not trade_date:
+        return None, f"{raw_type}: MISSING trade_date", mapping
+
+    amount = _num(item.get("amount"))
+    if amount is None:
+        if mapping.activity_type in NO_CASH_TYPES:
+            amount = 0.0
+        else:
+            return None, f"{raw_type} on {trade_date}: MISSING amount", mapping
+
+    units = _num(item.get("units"))
+    if units is not None and mapping.activity_type == "BUY":
+        units = abs(units)
+    elif units is not None and mapping.activity_type == "SELL":
+        units = -abs(units)
+
+    price = _num(item.get("price"))
+    if price is not None and price < 0:
+        price = None
+    fee = _num(item.get("fee"))
+    fee = abs(fee) if fee else None
+    symbol = ((item.get("symbol") or {}).get("symbol")
+              or (item.get("option_symbol") or {}).get("ticker"))
+
+    row = {
+        "activity_id": db.stable_id("snaptrade", account_id, provider_id),
+        "account_id": account_id,
+        "activity_type": mapping.activity_type,
+        "raw_type": raw_type,
+        "trade_date": trade_date,
+        "settlement_date": local_date(item.get("settlement_date")),
+        "symbol": symbol,
+        "description": item.get("description"),
+        "quantity": units,
+        "price": price,
+        "price_currency": code if price is not None else None,
+        "amount": amount,
+        "currency": code,
+        "fee_amount": fee,
+        "fee_currency": code if fee else None,
+        "counter_amount": None,
+        "counter_currency": None,
+        "reported_fx_rate": None,   # SnapTrade fx_rate direction unverified: raw JSON only
+        "provider_activity_id": str(provider_id),
+        "quality_flag": quality_flag,
+    }
+    return row, None, mapping

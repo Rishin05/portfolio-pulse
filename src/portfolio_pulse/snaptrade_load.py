@@ -1,7 +1,7 @@
 """Normalize masked raw SnapTrade JSON into the Phase 1 tables.
 
-Phase 2 scope: institution, connection, account, daily total-value snapshot and
-cash holdings (CASH.<code>). Positions and activities are normalized in Step 5.
+Phase 2 scope: institution, connection, account, daily total-value snapshot,
+cash holdings (CASH.<code>) and activities. Positions follow in Step 5d.
 Paper accounts are DEMO: they must never be presented as real money.
 """
 from __future__ import annotations
@@ -17,6 +17,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from . import db
+from .snaptrade_activity import normalize_activity
 from .snaptrade_sync import items_of
 
 log = logging.getLogger(__name__)
@@ -118,6 +119,54 @@ def _reject(res: LoadResult, message: str) -> None:
     res.warnings.append(message)
 
 
+def _warn_if_rekeyed(res: LoadResult, conn: sqlite3.Connection, row: dict) -> None:
+    """Warn when a NEW activity id matches an existing row's natural key.
+
+    SnapTrade documents that activity ids can change if it reprocesses data. We still
+    insert (never silently drop) but flag it for review.
+    """
+    if conn.execute("SELECT 1 FROM activity WHERE activity_id=?",
+                    (row["activity_id"],)).fetchone():
+        return
+    hit = conn.execute(
+        "SELECT 1 FROM activity WHERE account_id=? AND trade_date=? AND raw_type=? "
+        "AND amount=? AND COALESCE(symbol,'')=COALESCE(?,'') LIMIT 1",
+        (row["account_id"], row["trade_date"], row["raw_type"], row["amount"], row["symbol"]),
+    ).fetchone()
+    if hit:
+        res.warnings.append(
+            f"{row['account_id']}: possible re-keyed duplicate {row['raw_type']} on "
+            f"{row['trade_date']} ({row['amount']} {row['currency']}); inserted, please review.")
+
+
+def _load_activities(res: LoadResult, conn: sqlite3.Connection, folder: Path,
+                     st_acct: str, account_id: str, flag: str, now: str) -> None:
+    path = folder / f"activities_{str(st_acct)[:8]}.json"
+    if not path.exists():
+        res.warnings.append(f"{account_id}: no activities file; activities not recorded.")
+        return
+    review: dict[str, int] = {}
+    fx_count = 0
+    for item in items_of(_read_json(path)):
+        row, problem, mapping = normalize_activity(item, account_id, flag)
+        if row is None:
+            _reject(res, f"{account_id}: activity skipped: {problem}")
+            continue
+        row.update(source_id=SOURCE_ID, batch_id=res.batch_id, loaded_at_utc=now)
+        if mapping.needs_review:
+            review[row["raw_type"]] = review.get(row["raw_type"], 0) + 1
+        if item.get("fx_rate") not in (None, "", 0):
+            fx_count += 1
+        _warn_if_rekeyed(res, conn, row)
+        _write(res, conn, "activity", row)
+    for raw, n in sorted(review.items()):
+        res.warnings.append(f"{account_id}: {n} activity row(s) of type {raw!r} stored as "
+                            "OTHER for review (not guessed).")
+    if fx_count:
+        res.warnings.append(f"{account_id}: {fx_count} activity row(s) carry fx_rate; kept in "
+                            "raw JSON only until its direction is verified (Phase 4).")
+
+
 def load_folder(conn: sqlite3.Connection, folder: Path, *, dry_run: bool = False) -> LoadResult:
     as_of = snapshot_date(folder.name)
     res = LoadResult(folder=folder, as_of_date=as_of)
@@ -203,10 +252,10 @@ def load_folder(conn: sqlite3.Connection, folder: Path, *, dry_run: bool = False
                 })
 
             balances_path = folder / f"balances_{str(st_acct)[:8]}.json"
+            balances = items_of(_read_json(balances_path)) if balances_path.exists() else []
             if not balances_path.exists():
                 res.warnings.append(f"{account_id}: no balances file; cash not recorded.")
-                continue
-            for b in items_of(_read_json(balances_path)):
+            for b in balances:
                 code = str((b.get("currency") or {}).get("code") or "").upper()
                 cash = _money(b.get("cash"))
                 if len(code) != 3 or cash is None:
@@ -220,6 +269,8 @@ def load_folder(conn: sqlite3.Connection, folder: Path, *, dry_run: bool = False
                     "book_value_currency": None, "quality_flag": flag,
                     "source_id": SOURCE_ID, "batch_id": res.batch_id, "loaded_at_utc": now,
                 })
+
+            _load_activities(res, conn, folder, st_acct, account_id, flag, now)
 
         db.finish_batch(conn, res.batch_id, read=res.read, inserted=res.inserted,
                         skipped=res.skipped, rejected=res.rejected)
