@@ -42,9 +42,9 @@ def activity(c, aid):
     return c.execute("SELECT * FROM v_activity_cad WHERE activity_id = ?", (aid,)).fetchone()
 
 
-def test_schema_is_version_3(env):
+def test_schema_has_fx_cad_views(env):
     c, _ = env
-    assert db.current_schema_version(c) == 3
+    assert db.current_schema_version(c) >= 3   # later migrations must not break this
 
 
 def test_usd_snapshot_on_rate_day_is_reported(env):
@@ -122,4 +122,3 @@ def test_demo_rows_use_demo_rates_only(env):
     r = c.execute("SELECT * FROM v_snapshot_cad WHERE account_id = 'T-DEMO'").fetchone()
     assert r["end_value_cad"] == pytest.approx(1300.00, **APPROX)            # demo 1.3000, not BoC 1.4154
     assert r["fx_rate"] == 1.3
-    

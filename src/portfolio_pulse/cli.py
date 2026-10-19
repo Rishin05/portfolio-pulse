@@ -7,6 +7,7 @@ Commands
   fetch-news [--source ...]     pull watchlist headlines (auto | finnhub | rss | none)
   export                        write CSVs for Power BI to data/powerbi/
   fetch-fx [--start] [--end]    cache Bank of Canada daily FX rates (only dates not yet stored)
+  performance                   rebuild engine v2 results (account + household, USD + CAD) and summarize
   run-daily                     SnapTrade pull+load (if keys set) + BoC FX + fetch-news + data/inbox/ + export
   snaptrade-connect [--broker]  print a one-time, read-only SnapTrade Connection Portal link
   snaptrade-pull [--dry-run]    save masked raw SnapTrade JSON to data/raw/snaptrade/
@@ -24,8 +25,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from . import (csv_import, db, export, fx_rates, news, snaptrade_load, snaptrade_readonly,
-               snaptrade_sync, synthetic)
+from . import (csv_import, db, export, fx_rates, news, performance_store, snaptrade_load,
+               snaptrade_readonly, snaptrade_sync, synthetic)
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -69,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="YYYY-MM-DD; default: day after the latest stored rate (or ~400 days back)")
     fx.add_argument("--end", type=_iso_date, default=None, help="YYYY-MM-DD; default: today")
     fx.add_argument("--dry-run", action="store_true", help="fetch and count, write nothing")
+    sub.add_parser("performance")
     r = sub.add_parser("run-daily"); r.add_argument("--map", default=str(ROOT / "config" / "column_map.json"))
     r.add_argument("--source", default="auto", choices=["auto", "finnhub", "rss", "none"])
     c = sub.add_parser("snaptrade-connect")
@@ -104,6 +106,12 @@ def main(argv: list[str] | None = None) -> int:
             export.export_all(conn, ROOT / "data" / "powerbi")
         elif args.cmd == "fetch-fx":
             if not fetch_fx(conn, args.start, args.end, args.dry_run):
+                return 2
+        elif args.cmd == "performance":
+            try:
+                run_performance(conn)
+            except ValueError as exc:
+                log.error("Performance not computed: %s", exc)
                 return 2
         elif args.cmd == "run-daily":
             run_daily(conn, Path(args.map), args.source)
@@ -147,7 +155,20 @@ def run_daily(conn, map_path: Path, source: str) -> None:
         mapping = csv_import.load_mapping(map_path)
         for f in files:
             csv_import.import_csv(conn, f, mapping, rejects_dir=ROOT / "data" / "rejects")
+    try:
+        run_performance(conn)
+    except ValueError as exc:
+        log.warning("Performance step skipped: %s", exc)   # never blocks the export
     export.export_all(conn, ROOT / "data" / "powerbi")
+
+
+def run_performance(conn) -> None:
+    """Rebuild engine v2 results and log a plain-English summary."""
+    days, households, pairs = performance_store.run_and_save(conn)
+    log.info("Performance v2: %s account-day(s), %s household-day(s), %s paired transfer leg(s).",
+             len(days), len(households), len(pairs))
+    for line in performance_store.summarize(days, households):
+        log.info(line)
 
 
 
