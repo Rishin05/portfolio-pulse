@@ -9,6 +9,7 @@ Commands
     run-daily                     fetch-news + import everything in data/inbox/ + export
   snaptrade-connect [--broker]  print a one-time, read-only SnapTrade Connection Portal link
   snaptrade-pull [--dry-run]    save masked raw SnapTrade JSON to data/raw/snaptrade/
+  snaptrade-load [--dry-run]    load the newest raw pull into the database (re-run: 0 new rows)
 """
 
 from __future__ import annotations
@@ -21,7 +22,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from . import csv_import, db, export, news, snaptrade_readonly, snaptrade_sync, synthetic
+from . import (csv_import, db, export, news, snaptrade_load, snaptrade_readonly,
+               snaptrade_sync, synthetic)
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -61,6 +63,9 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--dry-run", action="store_true", help="fetch and count, write nothing")
     sp.add_argument("--show-shape", action="store_true",
                     help="print response keys/types only (no values) for debugging")
+    sl = sub.add_parser("snaptrade-load")
+    sl.add_argument("--folder", default=None, help="raw folder to load (default: newest)")
+    sl.add_argument("--dry-run", action="store_true", help="validate and count, then roll back")
     args = p.parse_args(argv)
     setup_logging(args.verbose)
 
@@ -88,8 +93,10 @@ def main(argv: list[str] | None = None) -> int:
             snaptrade_connect(args.broker)
         elif args.cmd == "snaptrade-pull":
             snaptrade_pull(args.dry_run, args.show_shape)
+        elif args.cmd == "snaptrade-load":
+            snaptrade_load_cmd(conn, args.folder, args.dry_run)
     except (csv_import.ImportConfigError, FileNotFoundError, news.NewsSourceUnavailable,
-            snaptrade_readonly.SnapTradeError) as exc:
+            snaptrade_readonly.SnapTradeError, snaptrade_load.RawDataError) as exc:
         log.error("%s", exc)
         return 2
     finally:
@@ -149,3 +156,16 @@ def snaptrade_pull(dry_run: bool, show_shape: bool) -> None:
         log.warning(err)
     if show_shape:
         print(json.dumps(res.shapes, indent=2))
+
+
+
+def snaptrade_load_cmd(conn, folder: str | None, dry_run: bool) -> None:
+    """Load a raw SnapTrade pull into the database."""
+    raw_root = ROOT / "data" / "raw" / "snaptrade"
+    target = Path(folder) if folder else snaptrade_load.latest_raw_folder(raw_root)
+    res = snaptrade_load.load_folder(conn, target, dry_run=dry_run)
+    log.info("SnapTrade load%s from %s (as of %s): read %s, inserted %s, skipped %s, rejected %s.",
+             " (dry run, rolled back)" if dry_run else "", target.name, res.as_of_date,
+             res.read, res.inserted, res.skipped, res.rejected)
+    for w in res.warnings:
+        log.warning(w)
