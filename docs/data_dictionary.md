@@ -168,6 +168,23 @@ Published fees, with where and when they were checked.
 | date_checked | TEXT | Required. The date you last confirmed the page. |
 | notes, is_demo | | |
 
+### `fx_posted_rate` (migration 006)
+Dated FX quotes posted by an institution (e.g. a bank's USD/CAD rate). Quotes, not fees.
+
+| Column | Type | Notes |
+|---|---|---|
+| fx_posted_rate_id | TEXT PK | stable_id('quote', institution, base, quote, rate_date, channel) |
+| institution_id | TEXT FK → institution | |
+| base_currency / quote_currency | TEXT | Upper-case ISO, different; e.g. USD / CAD. |
+| rate_date | TEXT | YYYY-MM-DD the quote applies to. Never reused on another day. |
+| channel | TEXT | NOT NULL, default `standard` (e.g. cash vs transfer). |
+| customer_buy_rate | REAL | CAD you pay per 1 USD. |
+| customer_sell_rate | REAL | CAD you receive per 1 USD. At least one rate; buy ≥ sell. |
+| source_url / date_checked | TEXT | Required; date_checked ≥ rate_date. Demo rows use example.com. |
+| notes, is_demo | | |
+
+UNIQUE (institution_id, base_currency, quote_currency, rate_date, channel).
+
 ### `watchlist` and `news_article`
 Headlines only: headline, publisher, UTC timestamp and a link to the original article. Never the article body. The UI says "Published around this date" and never claims a headline caused a move.
 
