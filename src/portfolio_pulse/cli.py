@@ -12,6 +12,7 @@ Commands
   snaptrade-connect [--broker]  print a one-time, read-only SnapTrade Connection Portal link
   snaptrade-pull [--dry-run]    save masked raw SnapTrade JSON to data/raw/snaptrade/
   snaptrade-load [--dry-run]    load the newest raw pull into the database (re-run: 0 new rows)
+  fees-import FILE --kind K     import sourced, dated FX fees (fee) or bank quotes (quote); --dry-run
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from . import (csv_import, db, export, fx_rates, news, performance_store, snaptrade_load,
+from . import (csv_import, db, export, fee_import, fx_rates, news, performance_store, snaptrade_load,
                snaptrade_readonly, snaptrade_sync, synthetic)
 
 ROOT = db.PROJECT_ROOT
@@ -83,6 +84,11 @@ def main(argv: list[str] | None = None) -> int:
     sl = sub.add_parser("snaptrade-load")
     sl.add_argument("--folder", default=None, help="raw folder to load (default: newest)")
     sl.add_argument("--dry-run", action="store_true", help="validate and count, then roll back")
+    fi = sub.add_parser("fees-import")
+    fi.add_argument("file")
+    fi.add_argument("--kind", required=True, choices=list(fee_import.KINDS),
+                    help="fee -> fee_schedule, quote -> fx_posted_rate")
+    fi.add_argument("--dry-run", action="store_true", help="validate only, write nothing")
     args = p.parse_args(argv)
     setup_logging(args.verbose)
 
@@ -121,6 +127,13 @@ def main(argv: list[str] | None = None) -> int:
             snaptrade_pull(args.dry_run, args.show_shape)
         elif args.cmd == "snaptrade-load":
             snaptrade_load_cmd(conn, args.folder, args.dry_run)
+        elif args.cmd == "fees-import":
+            res = fee_import.import_fee_csv(conn, args.file, args.kind, dry_run=args.dry_run,
+                                            rejects_dir=ROOT / "data" / "rejects")
+            for rej in res.rejected[:10]:
+                log.warning("Rejected line %s: %s", rej["line"], rej["reason"])
+            if res.rejected:
+                log.warning("%s rejected row(s) saved to data/rejects/ for review.", len(res.rejected))
     except (csv_import.ImportConfigError, FileNotFoundError, news.NewsSourceUnavailable,
             snaptrade_readonly.SnapTradeError, snaptrade_load.RawDataError) as exc:
         log.error("%s", exc)

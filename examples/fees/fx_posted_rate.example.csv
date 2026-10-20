@@ -1,0 +1,2 @@
+institution_id,institution_display_name,base_currency,quote_currency,rate_date,channel,customer_buy_rate,customer_sell_rate,source_url,date_checked,notes,is_demo
+demo-example-bank,Example Bank (DEMO),USD,CAD,2026-10-19,standard,1.4400,1.3600,https://example.com/demo-rates/usd,2026-10-19,DEMO: illustrative posted rate only,1

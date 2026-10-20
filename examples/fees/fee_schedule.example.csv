@@ -1,0 +1,2 @@
+institution_id,institution_display_name,fee_type,applies_to,rate_bps,flat_amount,flat_currency,effective_from,effective_to,source_url,date_checked,notes,is_demo
+demo-example-broker,Example Broker (DEMO),fx_conversion,CAD<->USD,150,,,,,https://example.com/demo-fees/fx,2026-10-19,DEMO: illustrative FX fee only,1
