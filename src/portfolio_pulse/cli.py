@@ -13,6 +13,7 @@ Commands
   snaptrade-pull [--dry-run]    save masked raw SnapTrade JSON to data/raw/snaptrade/
   snaptrade-load [--dry-run]    load the newest raw pull into the database (re-run: 0 new rows)
   fees-import FILE --kind K     import sourced, dated FX fees (fee) or bank quotes (quote); --dry-run
+  fx-cost --amount A --from C --to C --platform P [--date D]   FX cost vs the BoC reference rate
 """
 
 from __future__ import annotations
@@ -22,12 +23,13 @@ import logging
 import os
 import sys
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from . import (csv_import, db, export, fee_import, fx_rates, news, performance_store, snaptrade_load,
-               snaptrade_readonly, snaptrade_sync, synthetic)
+from . import (csv_import, db, export, fee_import, fx_converter, fx_rates, news, performance_store,
+               snaptrade_load, snaptrade_readonly, snaptrade_sync, synthetic)
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -50,6 +52,14 @@ def _iso_date(text: str) -> date:
         return date.fromisoformat(text)
     except ValueError:
         raise argparse.ArgumentTypeError(f"expected a date like 2026-10-19, got {text!r}") from None
+
+
+def _decimal(text: str) -> Decimal:
+    """argparse type: a money amount like 1000 or 1,000.50."""
+    try:
+        return Decimal(text.replace(",", ""))
+    except InvalidOperation:
+        raise argparse.ArgumentTypeError(f"expected an amount like 1000 or 1,000.50, got {text!r}") from None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -89,6 +99,14 @@ def main(argv: list[str] | None = None) -> int:
     fi.add_argument("--kind", required=True, choices=list(fee_import.KINDS),
                     help="fee -> fee_schedule, quote -> fx_posted_rate")
     fi.add_argument("--dry-run", action="store_true", help="validate only, write nothing")
+    fc = sub.add_parser("fx-cost")
+    fc.add_argument("--amount", type=_decimal, required=True, help="amount in the FROM currency")
+    fc.add_argument("--from", dest="from_ccy", required=True, choices=["CAD", "USD"])
+    fc.add_argument("--to", dest="to_ccy", required=True, choices=["CAD", "USD"])
+    fc.add_argument("--platform", required=True, help="institution_id, e.g. wealthsimple")
+    fc.add_argument("--date", type=_iso_date, default=None, help="YYYY-MM-DD; default: today")
+    fc.add_argument("--model", default="auto", choices=list(fx_converter.MODELS))
+    fc.add_argument("--channel", default=None, help="posted-quote channel if a bank has several")
     args = p.parse_args(argv)
     setup_logging(args.verbose)
 
@@ -134,8 +152,13 @@ def main(argv: list[str] | None = None) -> int:
                 log.warning("Rejected line %s: %s", rej["line"], rej["reason"])
             if res.rejected:
                 log.warning("%s rejected row(s) saved to data/rejects/ for review.", len(res.rejected))
+        elif args.cmd == "fx-cost":
+            res = fx_converter.convert(conn, args.amount, args.from_ccy, args.to_ccy, args.platform,
+                                       args.date or date.today(), args.model, args.channel)
+            print("\n".join(fx_converter.describe(res)))
     except (csv_import.ImportConfigError, FileNotFoundError, news.NewsSourceUnavailable,
-            snaptrade_readonly.SnapTradeError, snaptrade_load.RawDataError) as exc:
+            snaptrade_readonly.SnapTradeError, snaptrade_load.RawDataError,
+            fx_converter.ConverterError) as exc:
         log.error("%s", exc)
         return 2
     finally:
