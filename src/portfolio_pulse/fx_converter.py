@@ -155,3 +155,62 @@ def describe(res: ConverterResult) -> list[str]:
         f"  Source: {res.source_url} (checked {res.date_checked})",
         *[f"  Note: {w}" for w in res.warnings],
     ]
+
+
+# --- Export grid (Power BI fact_fx_cost) -----------------------------------------------
+# Every row comes from convert(), the same path as the CLI, so Power BI and the CLI agree.
+# Dates: posted quotes only on their own rate_date; percent fees on every BoC date from
+# effective_from (or date_checked if blank) onward - a fee is never applied to dates before
+# you confirmed it. Rows that can't be computed are skipped and counted, never zero-filled.
+
+GRID_AMOUNTS = (Decimal("100"), Decimal("1000"), Decimal("10000"))
+DIRECTIONS = (("CAD", "USD"), ("USD", "CAD"))
+COST_COLUMNS = ["as_of_date", "institution_id", "model", "channel", "from_currency", "to_currency",
+                "amount", "boc_rate", "boc_rate_date", "boc_status", "platform_rate",
+                "received_at_benchmark", "received_via_platform", "notional_cad", "cost_cad", "cost_bps",
+                "quality_label", "source_ref", "source_url", "date_checked", "is_demo"]
+
+
+def _boc_dates(conn, start: str, end: str | None) -> list[date]:
+    rows = conn.execute(
+        "SELECT rate_date FROM fx_rate WHERE base_currency = 'USD' AND quote_currency = 'CAD' "
+        "AND source_id = ? AND rate_date >= ? AND (? IS NULL OR rate_date <= ?) ORDER BY rate_date",
+        (fx_rates.SOURCE_ID, start, end, end)).fetchall()
+    return [date.fromisoformat(r[0]) for r in rows]
+
+
+def _grid_row(res: ConverterResult, channel: str | None) -> dict:
+    e = res.estimate
+    return {
+        "as_of_date": res.as_of_date.isoformat(), "institution_id": res.institution_id, "model": e.model,
+        "channel": channel, "from_currency": e.from_currency, "to_currency": e.to_currency,
+        "amount": float(e.amount), "boc_rate": float(e.benchmark_rate),
+        "boc_rate_date": res.boc_rate_date.isoformat(), "boc_status": res.boc_status,
+        "platform_rate": float(e.platform_rate), "received_at_benchmark": float(e.received_at_benchmark),
+        "received_via_platform": float(e.received_via_platform), "notional_cad": float(e.notional_cad),
+        "cost_cad": float(e.cost_cad), "cost_bps": float(e.cost_bps), "quality_label": res.quality_label,
+        "source_ref": res.source_ref, "source_url": res.source_url, "date_checked": res.date_checked,
+        "is_demo": int(res.is_demo),
+    }
+
+
+def cost_grid(conn, amounts=GRID_AMOUNTS) -> tuple[list[dict], int]:
+    """(rows for fact_fx_cost, number of combinations skipped because they can't be computed)."""
+    jobs: set[tuple] = set()
+    for r in conn.execute("SELECT institution_id, COALESCE(effective_from, date_checked) AS start, effective_to "
+                          "FROM fee_schedule WHERE fee_type = 'fx_conversion' AND rate_bps IS NOT NULL").fetchall():
+        for d in _boc_dates(conn, r["start"], r["effective_to"]):
+            jobs.add((r["institution_id"], d, "percent", None))
+    for r in conn.execute("SELECT DISTINCT institution_id, rate_date, channel FROM fx_posted_rate").fetchall():
+        jobs.add((r["institution_id"], date.fromisoformat(r["rate_date"]), "posted", r["channel"]))
+    rows, skipped = [], 0
+    for inst, day, model, channel in sorted(jobs):
+        for frm, to in DIRECTIONS:
+            for amount in amounts:
+                try:
+                    res = convert(conn, amount, frm, to, inst, day, model, channel)
+                except ConverterError:
+                    skipped += 1
+                    continue
+                rows.append(_grid_row(res, channel))
+    return rows, skipped

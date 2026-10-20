@@ -18,7 +18,7 @@ SQLite connector. Only a .pbix built from DEMO data is ever shared.
 - **Breaking** (rename, remove, reorder, change meaning or units): bump the major version, and update the Power BI report in the same commit.
 - Never exported: credentials, `.env` values, `connection.provider_ref`, real account numbers.
 
-## Live files (9)
+## Live files (12)
 
 | File | Grain | Columns (in order) |
 |---|---|---|
@@ -31,6 +31,16 @@ SQLite connector. Only a .pbix built from DEMO data is ever shared.
 | `dim_date.csv` | calendar day (min to max performance date) | date, year, month_num, month, year_month, week_of_year, weekday_num, weekday, is_weekday |
 | `data_quality.csv` | area × item | area, item, status, last_date, age_days, detail |
 | `export_info.csv` | one row | exported_at_utc, note |
+| `dim_fee_schedule.csv` | fee row | fee_schedule_id, institution_id, fee_type, applies_to, rate_bps, flat_amount, flat_currency, effective_from, effective_to, source_url, date_checked, notes, is_demo |
+| `dim_fx_posted_rate.csv` | institution × date × channel | fx_posted_rate_id, institution_id, base_currency, quote_currency, rate_date, channel, customer_buy_rate, customer_sell_rate, source_url, date_checked, notes, is_demo |
+| `fact_fx_cost.csv` | institution × date × direction × amount | as_of_date, institution_id, model, channel, from_currency, to_currency, amount, boc_rate, boc_rate_date, boc_status, platform_rate, received_at_benchmark, received_via_platform, notional_cad, cost_cad, cost_bps, quality_label, source_ref, source_url, date_checked, is_demo |
+
+`fact_fx_cost`: the Bank of Canada rate is an indicative reference rate (CAD per 1 USD), not a tradable
+rate. `cost_cad` = CAD value at that rate of what you'd get minus the CAD value of what you get;
+`cost_bps` = cost_cad / notional_cad × 10,000 (a 1.5% fee = 150 bps). Negative = better than the
+reference. Percent fees appear only from `effective_from` (or `date_checked`) onward; posted quotes
+only on their own `rate_date`. `quality_label` is reported / estimated / STALE / DEMO. Rows that
+can't be computed are omitted, never zero-filled. Never sum `cost_bps`; average it weighted by `notional_cad`.
 
 `data_quality.status` is one of `OK`, `DEMO`, `STALE`, `MISSING`. Portfolio data is STALE after
 4 days without a snapshot, and news after 7 days.
@@ -62,5 +72,6 @@ Tables exist since schema v2. Columns will follow `docs/data_dictionary.md`, min
 | `fact_fx_cost.csv` | 4 | Spread in bps and CAD per conversion. |
 
 ## Changelog
+- **1.2** (2026-10-20): added `dim_fee_schedule`, `dim_fx_posted_rate`, `fact_fx_cost` (additive, schema v6, Phase 4).
 - **1.1** (2026-10-15): `dim_account` gained `institution_id` and `connection_id` (additive, schema v2).
 - **1.0**: starter MVP, 9 files.

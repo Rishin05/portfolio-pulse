@@ -23,8 +23,17 @@ CONTRACT = {
                  "weekday_num", "weekday", "is_weekday"],
     "data_quality": ["area", "item", "status", "last_date", "age_days", "detail"],
     "export_info": ["exported_at_utc", "note"],
+    "dim_fee_schedule": ["fee_schedule_id", "institution_id", "fee_type", "applies_to", "rate_bps",
+                         "flat_amount", "flat_currency", "effective_from", "effective_to", "source_url",
+                         "date_checked", "notes", "is_demo"],
+    "dim_fx_posted_rate": ["fx_posted_rate_id", "institution_id", "base_currency", "quote_currency",
+                           "rate_date", "channel", "customer_buy_rate", "customer_sell_rate", "source_url",
+                           "date_checked", "notes", "is_demo"],
+    "fact_fx_cost": ["as_of_date", "institution_id", "model", "channel", "from_currency", "to_currency",
+                     "amount", "boc_rate", "boc_rate_date", "boc_status", "platform_rate",
+                     "received_at_benchmark", "received_via_platform", "notional_cad", "cost_cad", "cost_bps",
+                     "quality_label", "source_ref", "source_url", "date_checked", "is_demo"],
 }
-
 
 @pytest.fixture
 def exported(conn, tmp_path):

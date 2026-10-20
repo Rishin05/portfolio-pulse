@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from . import fx_converter
+
 log = logging.getLogger(__name__)
 
 STALE_NEWS_DAYS = 7
@@ -82,7 +84,19 @@ def export_all(conn, out_dir: str | Path) -> dict[str, int]:
         "dim_watchlist": _q(conn, "SELECT symbol, company_name, exchange, currency, active FROM watchlist"),
         "dim_source": _q(conn, "SELECT * FROM source"),
         "data_quality": build_quality(conn),
+        "dim_fee_schedule": _q(conn, "SELECT fee_schedule_id, institution_id, fee_type, applies_to, rate_bps, "
+                                     "flat_amount, flat_currency, effective_from, effective_to, source_url, "
+                                     "date_checked, notes, is_demo FROM fee_schedule "
+                                     "ORDER BY institution_id, fee_type, fee_schedule_id"),
+        "dim_fx_posted_rate": _q(conn, "SELECT fx_posted_rate_id, institution_id, base_currency, quote_currency, "
+                                       "rate_date, channel, customer_buy_rate, customer_sell_rate, source_url, "
+                                       "date_checked, notes, is_demo FROM fx_posted_rate "
+                                       "ORDER BY institution_id, rate_date, channel"),
     }
+    fx_rows, fx_skipped = fx_converter.cost_grid(conn)
+    tables["fact_fx_cost"] = pd.DataFrame(fx_rows, columns=fx_converter.COST_COLUMNS)
+    if fx_skipped:
+        log.info("fact_fx_cost: %s combination(s) skipped (no usable rate, fee or quote side).", fx_skipped)
     if not perf.empty:
         tables["dim_date"] = build_dim_date(perf["as_of_date"].min(), perf["as_of_date"].max())
     tables["export_info"] = pd.DataFrame([{"exported_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
