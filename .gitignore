@@ -8,5 +8,6 @@ data/inbox/*
 data/rejects/
 data/powerbi/
 data/raw/
+data/fees
 logs/
 *.pbix.bak
