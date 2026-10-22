@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
@@ -27,6 +28,30 @@ log = logging.getLogger(__name__)
 TIMEOUT = 15
 USER_AGENT = "portfolio-pulse/0.1 (personal educational project)"
 FINNHUB, RSS = "finnhub", "google_news_rss"
+RSS_WINDOW_DEFAULT, RSS_MAX_ITEMS_DEFAULT = 7, 25
+# A phrase that already uses search syntax is sent as written; a plain phrase is quoted.
+_RSS_SYNTAX = re.compile(r'["()]|\bOR\b|\bwhen:|\bsite:|(^|\s)-\S')
+
+
+def build_rss_query(phrase: str, window_days: int = RSS_WINDOW_DEFAULT) -> str:
+    """'VFV ETF' -> '"VFV ETF" when:7d'; '"VFV" OR "Vanguard S&P 500"' is kept as written."""
+    phrase = phrase.strip()
+    q = phrase if _RSS_SYNTAX.search(phrase) else f'"{phrase}"'
+    return q if "when:" in q else f"{q} when:{window_days}d"
+
+
+def _env_int(name: str, default: int, lo: int, hi: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        value = None
+    if value is None or not lo <= value <= hi:
+        log.warning("%s=%r ignored (expected a whole number %s-%s); using %s.", name, raw, lo, hi, default)
+        return default
+    return value
 
 
 class NewsSourceUnavailable(RuntimeError):
@@ -112,12 +137,16 @@ def parse_rss(xml_text: str) -> list[dict]:
     return out
 
 
-def fetch_google_news_rss(query: str, session=requests) -> list[dict]:
+def fetch_google_news_rss(query: str, session=requests, window_days: int = RSS_WINDOW_DEFAULT,
+                          max_items: int | None = RSS_MAX_ITEMS_DEFAULT) -> list[dict]:
     url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(
-        {"q": f'"{query}" when:7d', "hl": "en-CA", "gl": "CA", "ceid": "CA:en"})
+        {"q": build_rss_query(query, window_days), "hl": "en-CA", "gl": "CA", "ceid": "CA:en"})
     resp = session.get(url, headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT)
     resp.raise_for_status()
-    return parse_rss(resp.text)
+    items = parse_rss(resp.text)
+    if max_items:   # keep the newest; undated items sort last
+        items = sorted(items, key=lambda a: a["published_at_utc"] or "", reverse=True)[:max_items]
+    return items
 
 
 def store_articles(conn, symbol: str, articles: list[dict], source_id: str, batch_id: str) -> tuple[int, int]:
@@ -149,6 +178,8 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
         raise NewsSourceUnavailable("--source finnhub needs FINNHUB_API_KEY in your .env file.")
     use_finnhub = source in ("auto", "finnhub") and bool(api_key)
     use_rss = source == "rss" or (source == "auto" and rss_fallback)
+    rss_window = _env_int("NEWS_RSS_WINDOW_DAYS", RSS_WINDOW_DEFAULT, 1, 30)
+    rss_max = _env_int("NEWS_RSS_MAX_ITEMS", RSS_MAX_ITEMS_DEFAULT, 1, 100)
     if source == "none" or not (use_finnhub or use_rss):
         log.info("No news source enabled - keeping existing/demo news. Add FINNHUB_API_KEY to .env, "
                  "set NEWS_RSS_FALLBACK=1, or run with --source rss.")
@@ -168,7 +199,8 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
                 if src == FINNHUB:
                     articles = fetch_finnhub(r.finnhub_symbol, api_key, session=session)
                 else:
-                    articles = fetch_google_news_rss(r.rss_query, session=session)
+                    articles = fetch_google_news_rss(r.rss_query, session=session,
+                                                     window_days=rss_window, max_items=rss_max)
             except FinnhubKeyRejected as exc:
                 log.warning("%s Finnhub is off for the rest of this run.", exc)
                 finnhub_on = False
@@ -188,6 +220,7 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
             if not articles:
                 log.info("%s (%s): no recent articles found.", r.symbol, src)
                 continue                                    # try the next source
+            log.info("%s (%s): %s article(s).", r.symbol, src, len(articles))                                # try the next source
             if not dry_run:
                 if src not in batches:
                     batches[src] = db.start_batch(conn, src, f"news via {src}")

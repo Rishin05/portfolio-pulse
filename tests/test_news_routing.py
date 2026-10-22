@@ -108,3 +108,46 @@ def test_dry_run_writes_no_rows_and_no_batch(conn, key):
     assert res["fetched"] == 1 and res["inserted"] == 0
     assert conn.execute("SELECT COUNT(*) FROM news_article").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM import_batch").fetchone()[0] == batches
+
+    
+
+RSS_THREE = """<?xml version="1.0"?><rss><channel>
+<item><title>Old</title><link>https://example.org/1</link><pubDate>Mon, 19 Oct 2026 10:00:00 GMT</pubDate></item>
+<item><title>Newest</title><link>https://example.org/2</link><pubDate>Wed, 21 Oct 2026 10:00:00 GMT</pubDate></item>
+<item><title>Undated</title><link>https://example.org/3</link></item>
+</channel></rss>"""
+
+
+@pytest.mark.parametrize("phrase, expected", [
+    ("VFV ETF", '"VFV ETF" when:7d'),
+    ('"VFV" OR "Vanguard S&P 500 Index ETF"', '"VFV" OR "Vanguard S&P 500 Index ETF" when:7d'),
+    ("XEQT -crypto", "XEQT -crypto when:7d"),
+    ('"Shopify" when:3d', '"Shopify" when:3d'),
+])
+def test_build_rss_query(phrase, expected):
+    assert news.build_rss_query(phrase) == expected
+
+
+def test_rss_cap_keeps_newest_first():
+    s = Router(rss=Resp(text=RSS_THREE))
+    items = news.fetch_google_news_rss("x", session=s, max_items=2)
+    assert [i["headline"] for i in items] == ["Newest", "Old"]
+
+
+def test_rss_window_and_cap_come_from_env(conn, key, monkeypatch):
+    wl.add_manual(conn, "VFV", currency="CAD")
+    monkeypatch.setenv("NEWS_RSS_WINDOW_DAYS", "3")
+    monkeypatch.setenv("NEWS_RSS_MAX_ITEMS", "1")
+    s = Router(rss=Resp(text=RSS_THREE))
+    res = news.fetch_watchlist_news(conn, "rss", session=s)
+    assert "when%3A3d" in s.calls[0][0] and res["fetched"] == 1
+
+
+def test_bad_env_values_fall_back_to_defaults(conn, key, monkeypatch, caplog):
+    wl.add_manual(conn, "VFV", currency="CAD")
+    monkeypatch.setenv("NEWS_RSS_WINDOW_DAYS", "90")
+    monkeypatch.setenv("NEWS_RSS_MAX_ITEMS", "lots")
+    s = Router(rss=Resp(text=RSS_THREE))
+    news.fetch_watchlist_news(conn, "rss", session=s)
+    assert "when%3A7d" in s.calls[0][0]
+    assert "NEWS_RSS_WINDOW_DAYS" in caplog.text and "NEWS_RSS_MAX_ITEMS" in caplog.text
