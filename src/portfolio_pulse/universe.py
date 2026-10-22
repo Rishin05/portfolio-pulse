@@ -10,6 +10,10 @@ Verified 2026-10-22 on IVV, IWM (Russell 2000), XIU and XEQT files:
     so currency is derived from the exchange instead;
   * futures/cash rows, unlisted rows and non-standard tickers are rejected with a reason;
   * look-through files can list one stock several times -> merged, weights summed.
+
+Loading (import_list): each list mirrors its latest file. The same file again changes nothing
+(no batch, no rejects file); a newer file adds/updates/removes rows; an older file is refused;
+a file whose title doesn't match a known list id (e.g. a Russell 2000 file loaded as IWB) is refused.
 """
 from __future__ import annotations
 
@@ -36,6 +40,12 @@ EXCHANGE_CURRENCY = {"NASDAQ": "USD", "NYSE": "USD", "NYSE_ARCA": "USD", "CBOE":
 EXCLUDED_SECTORS = {"cash and/or derivatives"}
 MANUAL_REQUIRED = {"symbol", "name", "exchange"}
 
+# A file loaded into one of these lists must say so in its title row (catches the wrong download).
+KNOWN_FUNDS = {"IVV": "S&P 500", "IWB": "Russell 1000", "IWM": "Russell 2000", "XIU": "S&P/TSX 60",
+               "XIC": "Composite", "XEQT": "Core Equity"}
+_COMPARED = ("name", "raw_ticker", "currency", "asset_type", "sector", "weight_pct",
+             "holdings_as_of", "fund_name", "is_demo")
+
 
 class UniverseError(ValueError):
     """A file that can't be used at all (friendly message, never a stack trace)."""
@@ -48,6 +58,22 @@ class Parsed:
     rows: list[dict] = field(default_factory=list)
     rejects: list[dict] = field(default_factory=list)
 
+
+@dataclass
+class ImportResult:
+    list_id: str
+    fund_name: str | None
+    holdings_as_of: str | None
+    read: int = 0
+    added: int = 0
+    updated: int = 0
+    removed: int = 0
+    unchanged: int = 0
+    rejected: int = 0
+    dry_run: bool = False
+
+
+# ---------------------------------------------------------------- parsing (no database)
 
 def map_exchange(text: str | None) -> tuple[str, str] | None:
     """Issuer exchange text -> (code, trading currency); None = not covered by our news sources."""
@@ -217,27 +243,7 @@ def parse_manual_csv(text: str) -> Parsed:
     return out
 
 
-
-# A file loaded into one of these lists must say so in its title row (catches the wrong download).
-KNOWN_FUNDS = {"IVV": "S&P 500", "IWM": "Russell 1000", "XIU": "S&P/TSX 60",
-               "XIC": "Composite", "XEQT": "Core Equity"}
-_COMPARED = ("name", "raw_ticker", "currency", "asset_type", "sector", "weight_pct",
-             "holdings_as_of", "fund_name", "is_demo")
-
-
-@dataclass
-class ImportResult:
-    list_id: str
-    fund_name: str | None
-    holdings_as_of: str | None
-    read: int = 0
-    added: int = 0
-    updated: int = 0
-    removed: int = 0
-    unchanged: int = 0
-    rejected: int = 0
-    dry_run: bool = False
-
+# ---------------------------------------------------------------- loading (database)
 
 def _same(a, b) -> bool:
     if isinstance(a, float) or isinstance(b, float):
@@ -293,9 +299,10 @@ def import_list(conn, path: str | Path, list_id: str, dry_run: bool = False,
                        unchanged=len(new) - len(added) - len(updated), rejected=len(parsed.rejects),
                        dry_run=dry_run)
 
-    if parsed.rejects and rejects_dir is not None and not dry_run:
-        _write_rejects(parsed.rejects, rejects_dir, lid)
-    if not dry_run and (added or updated or removed or not existing):
+    writing = not dry_run and bool(added or updated or removed or not existing)
+    if writing:
+        if parsed.rejects and rejects_dir is not None:
+            _write_rejects(parsed.rejects, rejects_dir, lid)
         source_id = "csv_import" if manual else "ishares_holdings"
         batch = db.start_batch(conn, source_id, f"universe {lid} from {path.name}",
                                content_sha256=hashlib.sha256(data).hexdigest())
@@ -318,5 +325,5 @@ def import_list(conn, path: str | Path, list_id: str, dry_run: bool = False,
     log.info("Universe %s%s: '%s' as of %s - added %s, updated %s, removed %s, unchanged %s, rejected %s%s.",
              lid, " (dry run, nothing written)" if dry_run else "", res.fund_name, res.holdings_as_of or "-",
              res.added, res.updated, res.removed, res.unchanged, res.rejected,
-             " (see data/rejects/)" if res.rejected and rejects_dir is not None and not dry_run else "")
+             " (see data/rejects/)" if writing and res.rejected and rejects_dir is not None else "")
     return res

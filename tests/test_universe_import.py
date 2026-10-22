@@ -58,9 +58,13 @@ def test_older_file_is_refused(conn, tmp_path):
 
 
 def test_wrong_fund_for_a_known_list_is_refused(conn, tmp_path):
-    f = ivv(tmp_path, [NVDA], name="iShares Russell 2000 ETF", fname="IWM_holdings.xls")
+    f = ivv(tmp_path, [NVDA], name="iShares Russell 2000 ETF", fname="IWB_holdings.xls")
     with pytest.raises(u.UniverseError, match="Russell 1000"):
-        u.import_list(conn, f, "IWM")
+        u.import_list(conn, f, "IWB")
+    assert rows(conn, "IWB") == {}
+    g = ivv(tmp_path, [NVDA], name="iShares Russell 1000 ETF", fname="IWM_holdings.xls")
+    with pytest.raises(u.UniverseError, match="Russell 2000"):
+        u.import_list(conn, g, "IWM")
     assert rows(conn, "IWM") == {}
 
 
@@ -97,6 +101,16 @@ def test_bad_list_id_is_a_friendly_error(conn, tmp_path):
 def test_cli_universe_import_exit_codes(tmp_path):
     db_path = str(tmp_path / "cli.db")
     good = ivv(tmp_path, [NVDA])
-    bad = ivv(tmp_path, [NVDA], name="iShares Russell 2000 ETF", fname="IWM_holdings.xls")
+    bad = ivv(tmp_path, [NVDA], name="iShares Russell 2000 ETF", fname="IWB_holdings.xls")
     assert cli.main(["--db", db_path, "universe-import", str(good), "--list", "IVV", "--dry-run"]) == 0
-    assert cli.main(["--db", db_path, "universe-import", str(bad), "--list", "IWM"]) == 2
+    assert cli.main(["--db", db_path, "universe-import", str(bad), "--list", "IWB"]) == 2
+
+    
+
+def test_rejects_written_only_when_the_list_changes(conn, tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(u, "_write_rejects", lambda rejects, d, lid: calls.append(lid))
+    f = ivv(tmp_path, [NVDA, ["--", "UNLISTED CO", "Health Care", "Equity", "1", "0", "NO MARKET", "USD"]])
+    u.import_list(conn, f, "IVV", rejects_dir=tmp_path / "rejects")
+    u.import_list(conn, f, "IVV", rejects_dir=tmp_path / "rejects")      # unchanged: no new rejects file
+    assert calls == ["IVV"]
