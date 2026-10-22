@@ -5,6 +5,7 @@ Commands
   demo [--seed N]               load synthetic demo data (safe to re-run)
   import-csv FILE --map JSON    import your own export (add --dry-run to validate only)
   fetch-news [--source ...]     pull watchlist headlines (auto | finnhub | rss | none)
+  watchlist sync|add|remove|list  keep the news watchlist in step with holdings + your own picks
   export                        write CSVs for Power BI to data/powerbi/
   fetch-fx [--start] [--end]    cache Bank of Canada daily FX rates (only dates not yet stored)
   performance                   rebuild engine v2 results (account + household, USD + CAD) and summarize
@@ -21,6 +22,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sqlite3
 import sys
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -29,7 +31,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from . import (csv_import, db, export, fee_import, fx_converter, fx_rates, news, performance_store,
-               snaptrade_load, snaptrade_readonly, snaptrade_sync, synthetic)
+               snaptrade_load, snaptrade_readonly, snaptrade_sync, synthetic, watchlist)
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -75,6 +77,14 @@ def main(argv: list[str] | None = None) -> int:
     n = sub.add_parser("fetch-news"); n.add_argument("--source", default="auto",
                                                      choices=["auto", "finnhub", "rss", "none"])
     n.add_argument("--dry-run", action="store_true")
+    w = sub.add_parser("watchlist", help="sync from holdings, or add/remove/list symbols")
+    wsub = w.add_subparsers(dest="wcmd", required=True)
+    ws = wsub.add_parser("sync"); ws.add_argument("--dry-run", action="store_true")
+    wa = wsub.add_parser("add"); wa.add_argument("symbol")
+    wa.add_argument("--name", default=None); wa.add_argument("--query", dest="news_query", default=None)
+    wa.add_argument("--exchange", default=None); wa.add_argument("--currency", default=None)
+    wr = wsub.add_parser("remove"); wr.add_argument("symbol")
+    wsub.add_parser("list")
     sub.add_parser("export")
     fx = sub.add_parser("fetch-fx")
     fx.add_argument("--start", type=_iso_date, default=None,
@@ -126,6 +136,8 @@ def main(argv: list[str] | None = None) -> int:
                 log.warning("%s rejected row(s) saved to data/rejects/ for review.", len(res.rejected))
         elif args.cmd == "fetch-news":
             news.fetch_watchlist_news(conn, args.source, dry_run=args.dry_run)
+        elif args.cmd == "watchlist":
+            run_watchlist(conn, args)
         elif args.cmd == "export":
             export.export_all(conn, ROOT / "data" / "powerbi")
         elif args.cmd == "fetch-fx":
@@ -158,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
             print("\n".join(fx_converter.describe(res)))
     except (csv_import.ImportConfigError, FileNotFoundError, news.NewsSourceUnavailable,
             snaptrade_readonly.SnapTradeError, snaptrade_load.RawDataError,
-            fx_converter.ConverterError) as exc:
+            fx_converter.ConverterError, watchlist.WatchlistError) as exc:
         log.error("%s", exc)
         return 2
     finally:
@@ -179,6 +191,10 @@ def run_daily(conn, map_path: Path, source: str) -> None:
     snaptrade_daily(conn)   # optional; never blocks the rest
     fetch_fx(conn, None, None)   # cached; logs a warning and carries on if offline
     try:
+        watchlist.sync_from_holdings(conn)   # after SnapTrade, so new positions get news today
+    except sqlite3.Error as exc:
+        log.warning("Watchlist sync skipped: %s", exc)   # never blocks news or export
+    try:
         news.fetch_watchlist_news(conn, source)
     except news.NewsSourceUnavailable as exc:
         log.warning("News step skipped: %s", exc)   # news failing must not block the rest
@@ -197,7 +213,21 @@ def run_daily(conn, map_path: Path, source: str) -> None:
         log.warning("Performance step skipped: %s", exc)   # never blocks the export
     export.export_all(conn, ROOT / "data" / "powerbi")
 
-
+def run_watchlist(conn, args) -> None:
+    """watchlist sync | add | remove | list"""
+    if args.wcmd == "sync":
+        watchlist.sync_from_holdings(conn, dry_run=args.dry_run)
+    elif args.wcmd == "add":
+        watchlist.add_manual(conn, args.symbol, args.name, args.news_query, args.exchange, args.currency)
+    elif args.wcmd == "remove":
+        watchlist.remove(conn, args.symbol)
+    else:
+        print(f"{'SYMBOL':<10}{'ACTIVE':<8}{'ORIGIN':<9}{'DEMO':<6}{'LAST HELD':<12}NAME")
+        for r in watchlist.list_rows(conn):
+            print(f"{r['symbol']:<10}{'yes' if r['active'] else 'no':<8}{r['origin']:<9}"
+                  f"{'DEMO' if r['is_demo'] else '':<6}{r['last_seen_in_holdings'] or '-':<12}"
+                  f"{r['company_name']}")
+            
 def run_performance(conn) -> None:
     """Rebuild engine v2 results and log a plain-English summary."""
     days, households, pairs = performance_store.run_and_save(conn)
