@@ -17,7 +17,8 @@ CONTRACT = {
                   "published_date_utc", "fetched_at_utc", "source_id", "is_demo"],
     "dim_account": ["account_id", "display_name", "account_type", "base_currency", "is_demo",
                     "institution_id", "connection_id"],
-    "dim_watchlist": ["symbol", "company_name", "exchange", "currency", "active"],
+    "dim_watchlist": ["symbol", "company_name", "exchange", "currency", "active", "origin", "is_demo",
+                      "last_seen_in_holdings"],
     "dim_source": ["source_id", "display_name", "kind", "is_demo", "usage_note"],
     "dim_date": ["date", "year", "month_num", "month", "year_month", "week_of_year",
                  "weekday_num", "weekday", "is_weekday"],
@@ -52,3 +53,12 @@ def test_csv_columns_match_contract(exported, name):
     with open(exported / f"{name}.csv", newline="", encoding="utf-8") as f:
         header = next(csv.reader(f))
     assert header == CONTRACT[name]
+
+
+
+def test_dim_watchlist_labels_demo_rows(exported):
+    """Contract 1.3: demo-seeded symbols reach Power BI labelled origin=demo, is_demo=1."""
+    with open(exported / "dim_watchlist.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert [r["symbol"] for r in rows] == ["RY", "SHOP", "XEQT"]
+    assert {(r["origin"], r["is_demo"]) for r in rows} == {("demo", "1")}

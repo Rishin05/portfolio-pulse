@@ -81,7 +81,8 @@ def export_all(conn, out_dir: str | Path) -> dict[str, int]:
                               "n.source_id, s.is_demo FROM news_article n JOIN source s USING (source_id) "
                               "ORDER BY n.published_at_utc DESC"),
         "dim_account": _q(conn, "SELECT * FROM account"),
-        "dim_watchlist": _q(conn, "SELECT symbol, company_name, exchange, currency, active FROM watchlist"),
+        "dim_watchlist": _q(conn, "SELECT symbol, company_name, exchange, currency, active, origin, is_demo, "
+                                  "last_seen_in_holdings FROM watchlist ORDER BY symbol"),
         "dim_source": _q(conn, "SELECT * FROM source"),
         "data_quality": build_quality(conn),
         "dim_fee_schedule": _q(conn, "SELECT fee_schedule_id, institution_id, fee_type, applies_to, rate_bps, "

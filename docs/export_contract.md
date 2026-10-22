@@ -26,7 +26,7 @@ SQLite connector. Only a .pbix built from DEMO data is ever shared.
 | `fact_cash_flow.csv` | one cash flow | cash_flow_id, account_id, flow_date, flow_type, amount, currency, is_external, description, source_id |
 | `fact_news.csv` | one headline | article_id, symbol, headline, url, publisher, published_at_utc, published_date_utc, fetched_at_utc, source_id, is_demo |
 | `dim_account.csv` | account | account_id, display_name, account_type, base_currency, is_demo, institution_id, connection_id |
-| `dim_watchlist.csv` | symbol | symbol, company_name, exchange, currency, active |
+| `dim_watchlist.csv` | symbol | symbol, company_name, exchange, currency, active, origin, is_demo, last_seen_in_holdings |
 | `dim_source.csv` | source | source_id, display_name, kind, is_demo, usage_note |
 | `dim_date.csv` | calendar day (min to max performance date) | date, year, month_num, month, year_month, week_of_year, weekday_num, weekday, is_weekday |
 | `data_quality.csv` | area × item | area, item, status, last_date, age_days, detail |
@@ -72,6 +72,8 @@ Tables exist since schema v2. Columns will follow `docs/data_dictionary.md`, min
 | `fact_fx_cost.csv` | 4 | Spread in bps and CAD per conversion. |
 
 ## Changelog
+- **1.3** (2026-10-22): `dim_watchlist` gained `origin` (demo / holding / manual), `is_demo` and `last_seen_in_holdings`, appended at the end (additive, schema v7, Phase 5).
+- **1.2** (2026-10-20): added `dim_fee_schedule`, `dim_fx_posted_rate`, `fact_fx_cost` (additive, schema v6, Phase 4).
 - **1.2** (2026-10-20): added `dim_fee_schedule`, `dim_fx_posted_rate`, `fact_fx_cost` (additive, schema v6, Phase 4).
 - **1.1** (2026-10-15): `dim_account` gained `institution_id` and `connection_id` (additive, schema v2).
 - **1.0**: starter MVP, 9 files.

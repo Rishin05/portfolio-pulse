@@ -187,6 +187,15 @@ UNIQUE (institution_id, base_currency, quote_currency, rate_date, channel).
 
 ### `watchlist` and `news_article`
 Headlines only: headline, publisher, UTC timestamp and a link to the original article. Never the article body. The UI says "Published around this date" and never claims a headline caused a move.
+`watchlist` columns added in migration 007 (Phase 5):
+
+| Column | Meaning |
+|---|---|
+| `origin` | `demo` = seeded by the synthetic generator; `holding` = added by `watchlist sync` from each account's latest holdings; `manual` = added, edited or removed by you. Sync only switches `holding` rows on or off. |
+| `is_demo` | 1 unless a non-demo account holds the symbol (worst label wins). Defaults to 1, so an unlabelled row is never claimed real. |
+| `last_seen_in_holdings` | Latest `as_of_date` the symbol appeared in holdings (cash and zero quantities excluded); NULL if never held. |
+
+Rows are never deleted (news_article has a foreign key to `symbol`); a sold or removed symbol becomes `active = 0` and keeps its news history.
 
 ## Activity types and the performance rule
 
