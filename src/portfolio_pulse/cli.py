@@ -6,6 +6,7 @@ Commands
   import-csv FILE --map JSON    import your own export (add --dry-run to validate only)
   fetch-news [--source ...]     pull watchlist headlines (auto | finnhub | rss | none)
   watchlist sync|add|remove|list  keep the news watchlist in step with holdings + your own picks
+  universe-import FILE --list ID  load an iShares holdings .xls or a manual CSV into the symbol universe
   export                        write CSVs for Power BI to data/powerbi/
   fetch-fx [--start] [--end]    cache Bank of Canada daily FX rates (only dates not yet stored)
   performance                   rebuild engine v2 results (account + household, USD + CAD) and summarize
@@ -31,7 +32,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from . import (csv_import, db, export, fee_import, fx_converter, fx_rates, news, performance_store,
-               snaptrade_load, snaptrade_readonly, snaptrade_sync, symbol_map, synthetic, watchlist)
+               snaptrade_load, snaptrade_readonly, snaptrade_sync, symbol_map, synthetic, universe,
+               watchlist)
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -95,6 +97,11 @@ def main(argv: list[str] | None = None) -> int:
     wm.add_argument("--checked-on", type=_iso_date, default=None, help="YYYY-MM-DD; default: today")
     wu = wsub.add_parser("unmap"); wu.add_argument("symbol")
     wsub.add_parser("sources", help="show what each news source will be asked for, and why")
+    ui = sub.add_parser("universe-import")
+    ui.add_argument("file", help="data/reference/IVV_holdings.xls or a manual .csv")
+    ui.add_argument("--list", required=True, help="list id, e.g. IVV, IWM, XIU, XEQT, MANUAL")
+    ui.add_argument("--dry-run", action="store_true", help="parse and compare, write nothing")
+    ui.add_argument("--demo", action="store_true", help="label these rows as DEMO")
     sub.add_parser("export")
     fx = sub.add_parser("fetch-fx")
     fx.add_argument("--start", type=_iso_date, default=None,
@@ -148,6 +155,9 @@ def main(argv: list[str] | None = None) -> int:
             news.fetch_watchlist_news(conn, args.source, dry_run=args.dry_run)
         elif args.cmd == "watchlist":
             run_watchlist(conn, args)
+        elif args.cmd == "universe-import":
+            universe.import_list(conn, args.file, args.list, dry_run=args.dry_run, is_demo=args.demo,
+                                 rejects_dir=ROOT / "data" / "rejects")
         elif args.cmd == "export":
             export.export_all(conn, ROOT / "data" / "powerbi")
         elif args.cmd == "fetch-fx":
@@ -180,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
             print("\n".join(fx_converter.describe(res)))
     except (csv_import.ImportConfigError, FileNotFoundError, news.NewsSourceUnavailable,
             snaptrade_readonly.SnapTradeError, snaptrade_load.RawDataError,
-            fx_converter.ConverterError, watchlist.WatchlistError) as exc:
+            fx_converter.ConverterError, watchlist.WatchlistError, universe.UniverseError) as exc:
         log.error("%s", exc)
         return 2
     finally:

@@ -14,11 +14,18 @@ Verified 2026-10-22 on IVV, IWM (Russell 2000), XIU and XEQT files:
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
+import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
+
+from . import db
+
+log = logging.getLogger(__name__)
 
 SS = "{urn:schemas-microsoft-com:office:spreadsheet}"
 BOM = b"\xef\xbb\xbf"
@@ -208,3 +215,108 @@ def parse_manual_csv(text: str) -> Parsed:
             out.rows.append({"symbol": sym, "exchange": exch, "currency": cur, "name": name,
                              "raw_ticker": raw, "asset_type": atype, "sector": None, "weight_pct": None})
     return out
+
+
+
+# A file loaded into one of these lists must say so in its title row (catches the wrong download).
+KNOWN_FUNDS = {"IVV": "S&P 500", "IWM": "Russell 1000", "XIU": "S&P/TSX 60",
+               "XIC": "Composite", "XEQT": "Core Equity"}
+_COMPARED = ("name", "raw_ticker", "currency", "asset_type", "sector", "weight_pct",
+             "holdings_as_of", "fund_name", "is_demo")
+
+
+@dataclass
+class ImportResult:
+    list_id: str
+    fund_name: str | None
+    holdings_as_of: str | None
+    read: int = 0
+    added: int = 0
+    updated: int = 0
+    removed: int = 0
+    unchanged: int = 0
+    rejected: int = 0
+    dry_run: bool = False
+
+
+def _same(a, b) -> bool:
+    if isinstance(a, float) or isinstance(b, float):
+        return a is not None and b is not None and round(a, 6) == round(b, 6)
+    return a == b
+
+
+def _write_rejects(rejects: list[dict], rejects_dir: Path, list_id: str) -> Path:
+    rejects_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    path = rejects_dir / f"universe_{list_id}_{stamp}.csv"
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=["line", "ticker", "name", "reason"])
+        w.writeheader()
+        w.writerows(rejects)
+    return path
+
+
+def import_list(conn, path: str | Path, list_id: str, dry_run: bool = False,
+                is_demo: bool = False, rejects_dir: Path | None = None) -> ImportResult:
+    """Load one holdings file (.xls, Excel 2003 XML) or a manual CSV into symbol_universe."""
+    path = Path(path)
+    lid = (list_id or "").strip().upper()
+    if not LIST_RE.match(lid):
+        raise UniverseError(f"--list must be 1-12 letters/digits/_ (e.g. IVV, MANUAL), got {list_id!r}.")
+    data = path.read_bytes()
+    manual = path.suffix.lower() == ".csv"
+    parsed = parse_manual_csv(data.decode("utf-8-sig")) if manual else parse_ishares_xml(data)
+    expected = KNOWN_FUNDS.get(lid)
+    if not manual and expected and expected.lower() not in (parsed.fund_name or "").lower():
+        raise UniverseError(f"{path.name} is '{parsed.fund_name}', not the {lid} fund "
+                            f"(expected '{expected}' in its title). Nothing changed.")
+    if not manual and not parsed.holdings_as_of:
+        raise UniverseError(f"{path.name} has no 'Fund Holdings as of' date. Nothing changed.")
+
+    existing = {(r["symbol"], r["exchange"]): dict(r) for r in
+                conn.execute("SELECT * FROM symbol_universe WHERE list_id = ?", (lid,))}
+    stored_as_of = max((r["holdings_as_of"] for r in existing.values() if r["holdings_as_of"]), default=None)
+    if parsed.holdings_as_of and stored_as_of and parsed.holdings_as_of < stored_as_of:
+        raise UniverseError(f"{path.name} is dated {parsed.holdings_as_of}, older than {lid}'s stored "
+                            f"{stored_as_of}. Nothing changed.")
+
+    new = {}
+    for r in parsed.rows:
+        new[(r["symbol"], r["exchange"])] = {**r, "holdings_as_of": parsed.holdings_as_of,
+                                             "fund_name": parsed.fund_name, "is_demo": int(is_demo)}
+    added = sorted(new.keys() - existing.keys())
+    removed = sorted(existing.keys() - new.keys())
+    updated = sorted(k for k in new.keys() & existing.keys()
+                     if not all(_same(new[k][c], existing[k][c]) for c in _COMPARED))
+    res = ImportResult(lid, parsed.fund_name, parsed.holdings_as_of, read=len(parsed.rows) + len(parsed.rejects),
+                       added=len(added), updated=len(updated), removed=len(removed),
+                       unchanged=len(new) - len(added) - len(updated), rejected=len(parsed.rejects),
+                       dry_run=dry_run)
+
+    if parsed.rejects and rejects_dir is not None and not dry_run:
+        _write_rejects(parsed.rejects, rejects_dir, lid)
+    if not dry_run and (added or updated or removed or not existing):
+        source_id = "csv_import" if manual else "ishares_holdings"
+        batch = db.start_batch(conn, source_id, f"universe {lid} from {path.name}",
+                               content_sha256=hashlib.sha256(data).hexdigest())
+        now = db.utc_now()
+        for k in added:
+            db.insert_ignore(conn, "symbol_universe", {
+                "list_id": lid, **{c: new[k][c] for c in ("symbol", "exchange", *_COMPARED)},
+                "source_file": path.name, "source_id": source_id, "batch_id": batch, "loaded_at_utc": now})
+        for k in updated:
+            sets = ", ".join(f"{c} = ?" for c in _COMPARED)
+            conn.execute(f"UPDATE symbol_universe SET {sets}, source_file = ?, batch_id = ?, loaded_at_utc = ? "
+                         "WHERE list_id = ? AND symbol = ? AND exchange = ?",
+                         (*[new[k][c] for c in _COMPARED], path.name, batch, now, lid, *k))
+        for k in removed:
+            conn.execute("DELETE FROM symbol_universe WHERE list_id = ? AND symbol = ? AND exchange = ?",
+                         (lid, *k))
+        db.finish_batch(conn, batch, read=res.read, inserted=res.added, skipped=res.unchanged,
+                        rejected=res.rejected)
+        conn.commit()
+    log.info("Universe %s%s: '%s' as of %s - added %s, updated %s, removed %s, unchanged %s, rejected %s%s.",
+             lid, " (dry run, nothing written)" if dry_run else "", res.fund_name, res.holdings_as_of or "-",
+             res.added, res.updated, res.removed, res.unchanged, res.rejected,
+             " (see data/rejects/)" if res.rejected and rejects_dir is not None and not dry_run else "")
+    return res
