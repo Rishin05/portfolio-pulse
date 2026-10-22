@@ -327,3 +327,64 @@ def import_list(conn, path: str | Path, list_id: str, dry_run: bool = False,
              res.added, res.updated, res.removed, res.unchanged, res.rejected,
              " (see data/rejects/)" if writing and res.rejected and rejects_dir is not None else "")
     return res
+
+
+
+# ---------------------------------------------------------------- search (read-only)
+
+SEARCH_SQL = r"""
+SELECT u.symbol, u.exchange, MAX(u.name) AS name, MAX(u.currency) AS currency,
+       MAX(u.asset_type) AS asset_type, GROUP_CONCAT(u.list_id) AS lists,
+       MAX(COALESCE(u.weight_pct, 0)) AS weight, MAX(u.is_demo) AS is_demo,
+       CASE WHEN w.symbol IS NULL THEN '-' WHEN w.active = 1 THEN 'active' ELSE 'inactive' END AS watchlist,
+       MIN(CASE WHEN u.symbol = :q THEN 0
+                WHEN u.symbol LIKE :pre ESCAPE '\' THEN 1
+                WHEN upper(u.name) LIKE :pre ESCAPE '\' OR upper(u.name) LIKE :word ESCAPE '\' THEN 2
+                ELSE 3 END) AS rank
+FROM symbol_universe u
+LEFT JOIN watchlist w ON w.symbol = u.symbol
+WHERE u.symbol LIKE :pre ESCAPE '\' OR upper(u.name) LIKE :any ESCAPE '\'
+GROUP BY u.symbol, u.exchange
+ORDER BY rank, weight DESC, u.symbol
+LIMIT :limit
+"""
+
+
+def _like_escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def search(conn, text: str, limit: int = 20) -> list[dict]:
+    """Ranked search by ticker or name: exact ticker, ticker prefix, name word prefix, name contains."""
+    q = (text or "").strip().upper()
+    if not q:
+        raise UniverseError("Type something to search for, e.g. shopify or SHOP.")
+    e = _like_escape(q)
+    hits = []
+    for r in conn.execute(SEARCH_SQL, {"q": q, "pre": e + "%", "word": "% " + e + "%",
+                                       "any": "%" + e + "%", "limit": int(limit)}):
+        d = dict(r)
+        d["lists"] = ",".join(sorted(set((d["lists"] or "").split(","))))
+        hits.append(d)
+    return hits
+
+
+def lookup(conn, symbol: str, exchange: str | None = None) -> dict:
+    """The single universe listing for a ticker (optionally on one exchange), for `watchlist add --from-universe`."""
+    sym = normalize_ticker(symbol)
+    if sym is None:
+        raise UniverseError(f"{symbol!r} doesn't look like a ticker.")
+    sql = ("SELECT symbol, exchange, MAX(name) AS name, MAX(currency) AS currency, "
+           "MAX(asset_type) AS asset_type FROM symbol_universe WHERE symbol = ?")
+    params = [sym]
+    if exchange:
+        sql += " AND exchange = ?"
+        params.append(exchange.strip().upper())
+    rows = conn.execute(sql + " GROUP BY symbol, exchange ORDER BY exchange", params).fetchall()
+    where = f" on {exchange.strip().upper()}" if exchange else ""
+    if not rows:
+        raise UniverseError(f"{sym} is not in the symbol universe{where}. Try `watchlist search {sym}`.")
+    if len(rows) > 1:
+        raise UniverseError(f"{sym} is listed on {', '.join(r['exchange'] for r in rows)}; "
+                            "add --exchange to pick one.")
+    return dict(rows[0])

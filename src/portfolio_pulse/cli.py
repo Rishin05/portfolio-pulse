@@ -85,6 +85,11 @@ def main(argv: list[str] | None = None) -> int:
     wa = wsub.add_parser("add"); wa.add_argument("symbol")
     wa.add_argument("--name", default=None); wa.add_argument("--query", dest="news_query", default=None)
     wa.add_argument("--exchange", default=None); wa.add_argument("--currency", default=None)
+    wa.add_argument("--from-universe", action="store_true",
+                    help="fill name/exchange/currency from the symbol universe")
+    wq = wsub.add_parser("search", help="find symbols in the universe by ticker or name")
+    wq.add_argument("text")
+    wq.add_argument("--limit", type=int, default=20)
     wr = wsub.add_parser("remove"); wr.add_argument("symbol")
     wsub.add_parser("list")
     wm = wsub.add_parser("map", help="set how news sources look this symbol up")
@@ -238,7 +243,11 @@ def run_watchlist(conn, args) -> None:
     if args.wcmd == "sync":
         watchlist.sync_from_holdings(conn, dry_run=args.dry_run)
     elif args.wcmd == "add":
-        watchlist.add_manual(conn, args.symbol, args.name, args.news_query, args.exchange, args.currency)
+        name, exchange, currency = args.name, args.exchange, args.currency
+        if args.from_universe:
+            info = universe.lookup(conn, args.symbol, exchange)
+            name, exchange, currency = name or info["name"], info["exchange"], currency or info["currency"]
+        watchlist.add_manual(conn, args.symbol, name, args.news_query, exchange, currency)
     elif args.wcmd == "remove":
         watchlist.remove(conn, args.symbol)
     elif args.wcmd == "map":
@@ -266,6 +275,16 @@ def run_watchlist(conn, args) -> None:
         for r in symbol_map.resolve_active(conn):
             print(f"{r.symbol:<9}{r.finnhub_symbol or '-':<10}{r.finnhub_basis:<14}"
                   f"{news.build_rss_query(r.rss_query)} ({r.rss_basis})")
+    elif args.wcmd == "search":
+        hits = universe.search(conn, args.text, args.limit)
+        if not hits:
+            print(f"No matches for {args.text!r} in the symbol universe.")
+            return
+        print(f"{'SYMBOL':<8}{'EXCH':<10}{'CCY':<5}{'TYPE':<8}{'LISTS':<20}{'WATCHLIST':<10}NAME")
+        for h in hits:
+            print(f"{h['symbol']:<8}{h['exchange']:<10}{h['currency']:<5}{h['asset_type']:<8}"
+                  f"{h['lists'][:19]:<20}{h['watchlist']:<10}{h['name'][:40]}")
+        print(f"\n{len(hits)} match(es). Add one with: watchlist add SYMBOL --from-universe [--exchange EXCH]")
     else:
         print(f"{'SYMBOL':<10}{'ACTIVE':<8}{'ORIGIN':<9}{'DEMO':<6}{'LAST HELD':<12}NAME")
         for r in watchlist.list_rows(conn):
