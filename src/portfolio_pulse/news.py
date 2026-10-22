@@ -1,10 +1,14 @@
 """Watchlist news ingestion: headline, link, publisher and timestamp only.
 
-Source order (decided at run time):
-  1. Finnhub company-news API, if FINNHUB_API_KEY is set in your .env
-  2. Google News RSS, only if you pass --source rss (personal, non-commercial use)
-  3. Otherwise nothing is fetched and the synthetic demo news stays in place.
-A failed source never crashes the daily job; it logs a friendly message instead.
+Source order, per symbol (Phase 5):
+  1. Finnhub company-news, if FINNHUB_API_KEY is set and symbol_map resolves a Finnhub symbol
+     (TSX '.TO' symbols are HTTP 403 on the free plan; cross-listed companies map to the US symbol).
+  2. Google News RSS (personal, non-commercial), only when you opt in: --source rss, or
+     NEWS_RSS_FALLBACK=1 in .env for `auto` / run-daily. Uses the resolved RSS phrase.
+  3. Otherwise nothing is fetched for that symbol; existing/demo news stays in place.
+A source that fails or returns nothing hands over to the next. A 401 (bad key) switches
+Finnhub off for the rest of the run. A failure is logged per symbol and never stops the job.
+Articles are stored under the watchlist symbol, whatever symbol the source was asked for.
 """
 from __future__ import annotations
 
@@ -17,15 +21,24 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from . import db
+from . import db, symbol_map
 
 log = logging.getLogger(__name__)
 TIMEOUT = 15
 USER_AGENT = "portfolio-pulse/0.1 (personal educational project)"
+FINNHUB, RSS = "finnhub", "google_news_rss"
 
 
 class NewsSourceUnavailable(RuntimeError):
     pass
+
+
+class FinnhubKeyRejected(NewsSourceUnavailable):
+    """HTTP 401: the key itself is wrong, so every further Finnhub call would fail too."""
+
+
+class FinnhubNotOnPlan(NewsSourceUnavailable):
+    """HTTP 403: this symbol isn't available on your plan (e.g. TSX '.TO' on the free plan)."""
 
 
 def normalize_url(url: str) -> str:
@@ -44,6 +57,10 @@ def _iso(dt: datetime | None) -> str | None:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def fetch_finnhub(symbol: str, api_key: str, days: int = 7, session=requests) -> list[dict]:
     today = date.today()
     resp = session.get(
@@ -52,8 +69,12 @@ def fetch_finnhub(symbol: str, api_key: str, days: int = 7, session=requests) ->
         headers={"X-Finnhub-Token": api_key, "User-Agent": USER_AGENT},   # key in header, not in logged URLs
         timeout=TIMEOUT,
     )
-    if resp.status_code in (401, 403):
-        raise NewsSourceUnavailable("Finnhub rejected the API key. Check FINNHUB_API_KEY in your .env file.")
+    if resp.status_code == 401:
+        raise FinnhubKeyRejected("Finnhub rejected the API key (HTTP 401). Check FINNHUB_API_KEY in your .env file.")
+    if resp.status_code == 403:
+        raise FinnhubNotOnPlan(f"Finnhub returned HTTP 403 for {symbol}: not available on your plan "
+                               "(TSX '.TO' symbols are 403 on the free plan). Map a US listing or skip "
+                               "Finnhub for it with `watchlist map`.")
     if resp.status_code == 429:
         raise NewsSourceUnavailable("Finnhub rate limit reached. Try again in a minute.")
     resp.raise_for_status()
@@ -113,47 +134,83 @@ def store_articles(conn, symbol: str, articles: list[dict], source_id: str, batc
     return ins, skip
 
 
-def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, session=requests) -> dict:
+def _empty_totals(source: str) -> dict:
+    return {"source": source, "inserted": 0, "skipped": 0, "errors": 0, "fetched": 0,
+            "by_source": {}, "no_source": []}
+
+
+def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, session=requests,
+                         rss_fallback: bool | None = None) -> dict:
+    """source: auto | finnhub | rss | none. rss_fallback=None reads NEWS_RSS_FALLBACK from the environment."""
     api_key = os.getenv("FINNHUB_API_KEY", "").strip()
-    if source == "auto":
-        source = "finnhub" if api_key else "none"
-    if source == "none":
-        log.info("No FINNHUB_API_KEY found and RSS not requested - keeping existing/demo news. "
-                 "Add a key to .env or run with --source rss.")
-        return {"source": "none", "inserted": 0, "skipped": 0, "errors": 0}
+    if rss_fallback is None:
+        rss_fallback = _env_flag("NEWS_RSS_FALLBACK")
     if source == "finnhub" and not api_key:
         raise NewsSourceUnavailable("--source finnhub needs FINNHUB_API_KEY in your .env file.")
+    use_finnhub = source in ("auto", "finnhub") and bool(api_key)
+    use_rss = source == "rss" or (source == "auto" and rss_fallback)
+    if source == "none" or not (use_finnhub or use_rss):
+        log.info("No news source enabled - keeping existing/demo news. Add FINNHUB_API_KEY to .env, "
+                 "set NEWS_RSS_FALLBACK=1, or run with --source rss.")
+        return _empty_totals("none")
 
-    source_id = "finnhub" if source == "finnhub" else "google_news_rss"
-    symbols = conn.execute("SELECT symbol, company_name, news_query FROM watchlist WHERE active = 1").fetchall()
-    batch = None if dry_run else db.start_batch(conn, source_id, f"news via {source}")
-    totals = {"source": source, "inserted": 0, "skipped": 0, "errors": 0, "fetched": 0}
-    for row in symbols:
-        try:
-            if source == "finnhub":
-                articles = fetch_finnhub(row["symbol"], api_key, session=session)
-            else:
-                articles = fetch_google_news_rss(row["news_query"] or row["company_name"], session=session)
-        except NewsSourceUnavailable as exc:
-            log.warning("%s: %s", row["symbol"], exc)
-            totals["errors"] += 1
-            continue
-        except (requests.RequestException, ET.ParseError, ValueError) as exc:
-            log.warning("%s: couldn't fetch news (%s). Skipping this symbol.", row["symbol"], type(exc).__name__)
-            totals["errors"] += 1
-            continue
-        totals["fetched"] += len(articles)
-        if not articles:
-            log.info("%s: no recent articles found.", row["symbol"])
-        if dry_run:
-            continue
-        ins, skip = store_articles(conn, row["symbol"], articles, source_id, batch)
-        totals["inserted"] += ins
-        totals["skipped"] += skip
-    if batch:
-        db.finish_batch(conn, batch, read=totals["fetched"], inserted=totals["inserted"],
-                        skipped=totals["skipped"], rejected=0)
+    totals = _empty_totals(source)
+    batches: dict[str, str] = {}
+    finnhub_on = use_finnhub
+    for r in symbol_map.resolve_active(conn):
+        plan = ([FINNHUB] if use_finnhub and r.finnhub_symbol else []) + ([RSS] if use_rss else [])
+        attempted = False
+        for src in plan:
+            if src == FINNHUB and not finnhub_on:
+                continue                                    # switched off earlier by a 401
+            attempted = True
+            try:
+                if src == FINNHUB:
+                    articles = fetch_finnhub(r.finnhub_symbol, api_key, session=session)
+                else:
+                    articles = fetch_google_news_rss(r.rss_query, session=session)
+            except FinnhubKeyRejected as exc:
+                log.warning("%s Finnhub is off for the rest of this run.", exc)
+                finnhub_on = False
+                totals["errors"] += 1
+                continue
+            except NewsSourceUnavailable as exc:
+                log.warning("%s (%s): %s", r.symbol, src, exc)
+                totals["errors"] += 1
+                continue
+            except (requests.RequestException, ET.ParseError, ValueError) as exc:
+                log.warning("%s (%s): couldn't fetch news (%s).", r.symbol, src, type(exc).__name__)
+                totals["errors"] += 1
+                continue
+            per = totals["by_source"].setdefault(src, {"fetched": 0, "inserted": 0, "skipped": 0})
+            per["fetched"] += len(articles)
+            totals["fetched"] += len(articles)
+            if not articles:
+                log.info("%s (%s): no recent articles found.", r.symbol, src)
+                continue                                    # try the next source
+            if not dry_run:
+                if src not in batches:
+                    batches[src] = db.start_batch(conn, src, f"news via {src}")
+                ins, skip = store_articles(conn, r.symbol, articles, src, batches[src])
+                per["inserted"] += ins
+                per["skipped"] += skip
+                totals["inserted"] += ins
+                totals["skipped"] += skip
+            break                                           # got articles: no need for a fallback
+        if not attempted:
+            totals["no_source"].append(r.symbol)
+            log.info("%s: no news source (Finnhub: %s; RSS fallback %s).", r.symbol, r.finnhub_basis,
+                     "on" if use_rss else "off")
+
+    for src, batch in batches.items():
+        per = totals["by_source"][src]
+        db.finish_batch(conn, batch, read=per["fetched"], inserted=per["inserted"],
+                        skipped=per["skipped"], rejected=0)
+    if batches:
         conn.commit()
-    log.info("News (%s): %s fetched, %s new, %s duplicates, %s symbol errors.", source,
-             totals["fetched"], totals["inserted"], totals["skipped"], totals["errors"])
+    log.info("News (%s%s): %s fetched, %s new, %s duplicates, %s errors; by source %s; no source: %s.",
+             source, ", dry run" if dry_run else "", totals["fetched"], totals["inserted"],
+             totals["skipped"], totals["errors"],
+             {k: v["fetched"] for k, v in totals["by_source"].items()} or "none",
+             totals["no_source"] or "none")
     return totals

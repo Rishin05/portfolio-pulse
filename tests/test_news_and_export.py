@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 import requests
 
-from portfolio_pulse import db, export, news, synthetic
+from portfolio_pulse import db, export, news, symbol_map, synthetic
 
 RSS = """<?xml version="1.0"?><rss><channel>
 <item><title>Shopify expands payments</title><link>https://example.org/a?utm_source=x</link>
@@ -65,16 +65,22 @@ def test_finnhub_mapping_and_key_in_header(conn, monkeypatch):
 
 def test_bad_key_and_outage_do_not_crash(conn, monkeypatch):
     synthetic.load_demo(conn)
+    symbol_map.set_mapping(conn, "RY", finnhub="RY")       # demo rows are CAD: Finnhub only once mapped
+    symbol_map.set_mapping(conn, "SHOP", finnhub="SHOP")
     monkeypatch.setenv("FINNHUB_API_KEY", "bad")
-    res = news.fetch_watchlist_news(conn, "auto", session=FakeSession(FakeResp(status=401)))
-    assert res["errors"] == 3 and res["inserted"] == 0
-    res = news.fetch_watchlist_news(conn, "auto", session=FakeSession(exc=requests.ConnectionError()))
-    assert res["errors"] == 3
+    s = FakeSession(FakeResp(status=401))
+    res = news.fetch_watchlist_news(conn, "auto", session=s, rss_fallback=False)
+    assert res["errors"] == 1 and res["inserted"] == 0
+    assert len(s.calls) == 1                                # a 401 switches Finnhub off for the run
+    assert res["no_source"] == ["SHOP", "XEQT"]
+    res = news.fetch_watchlist_news(conn, "auto", session=FakeSession(exc=requests.ConnectionError()),
+                                    rss_fallback=False)
+    assert res["errors"] == 2 and res["no_source"] == ["XEQT"]
 
 
 def test_missing_key_falls_back_quietly(conn, monkeypatch):
     monkeypatch.delenv("FINNHUB_API_KEY", raising=False)
-    assert news.fetch_watchlist_news(conn, "auto")["source"] == "none"
+    assert news.fetch_watchlist_news(conn, "auto", rss_fallback=False)["source"] == "none"
     with pytest.raises(news.NewsSourceUnavailable, match="FINNHUB_API_KEY"):
         news.fetch_watchlist_news(conn, "finnhub")
 
