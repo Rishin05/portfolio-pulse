@@ -31,7 +31,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from . import (csv_import, db, export, fee_import, fx_converter, fx_rates, news, performance_store,
-               snaptrade_load, snaptrade_readonly, snaptrade_sync, synthetic, watchlist)
+               snaptrade_load, snaptrade_readonly, snaptrade_sync, symbol_map, synthetic, watchlist)
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -85,6 +85,16 @@ def main(argv: list[str] | None = None) -> int:
     wa.add_argument("--exchange", default=None); wa.add_argument("--currency", default=None)
     wr = wsub.add_parser("remove"); wr.add_argument("symbol")
     wsub.add_parser("list")
+    wm = wsub.add_parser("map", help="set how news sources look this symbol up")
+    wm.add_argument("symbol")
+    fh = wm.add_mutually_exclusive_group()
+    fh.add_argument("--finnhub", default=None, help="symbol to ask Finnhub for, e.g. SHOP")
+    fh.add_argument("--no-finnhub", action="store_true", help="never use Finnhub for this symbol")
+    wm.add_argument("--rss", default=None, help="Google News phrase or search syntax")
+    wm.add_argument("--note", default=None, help="why (e.g. what you checked)")
+    wm.add_argument("--checked-on", type=_iso_date, default=None, help="YYYY-MM-DD; default: today")
+    wu = wsub.add_parser("unmap"); wu.add_argument("symbol")
+    wsub.add_parser("sources", help="show what each news source will be asked for, and why")
     sub.add_parser("export")
     fx = sub.add_parser("fetch-fx")
     fx.add_argument("--start", type=_iso_date, default=None,
@@ -221,6 +231,31 @@ def run_watchlist(conn, args) -> None:
         watchlist.add_manual(conn, args.symbol, args.name, args.news_query, args.exchange, args.currency)
     elif args.wcmd == "remove":
         watchlist.remove(conn, args.symbol)
+    elif args.wcmd == "map":
+        changes = {}
+        if args.no_finnhub:
+            changes["finnhub"] = None
+        elif args.finnhub is not None:
+            changes["finnhub"] = args.finnhub
+        if args.rss is not None:
+            changes["rss_query"] = args.rss
+        if args.note is not None:
+            changes["note"] = args.note
+        r = symbol_map.set_mapping(conn, args.symbol,
+                                   checked_on=args.checked_on.isoformat() if args.checked_on else None,
+                                   **changes)
+        print(f"{r.symbol}: Finnhub {r.finnhub_symbol or '-'} ({r.finnhub_basis}); "
+              f"RSS {news.build_rss_query(r.rss_query)} ({r.rss_basis})")
+    elif args.wcmd == "unmap":
+        if symbol_map.clear_mapping(conn, args.symbol):
+            log.info("Mapping removed for %s; the default rule applies again.", args.symbol.upper())
+        else:
+            log.info("%s had no mapping; nothing changed.", args.symbol.upper())
+    elif args.wcmd == "sources":
+        print(f"{'SYMBOL':<9}{'FINNHUB':<10}{'BASIS':<14}RSS QUERY (basis)")
+        for r in symbol_map.resolve_active(conn):
+            print(f"{r.symbol:<9}{r.finnhub_symbol or '-':<10}{r.finnhub_basis:<14}"
+                  f"{news.build_rss_query(r.rss_query)} ({r.rss_basis})")
     else:
         print(f"{'SYMBOL':<10}{'ACTIVE':<8}{'ORIGIN':<9}{'DEMO':<6}{'LAST HELD':<12}NAME")
         for r in watchlist.list_rows(conn):
