@@ -82,7 +82,10 @@ def build_quality(conn, today: date | None = None) -> pd.DataFrame:
                      "detail": f"{r['real_n']} real, {r['demo_n']} demo, {r['dup_n']} cross-source duplicates, "
                                f"{r['no_ts']} without timestamp; Finnhub: {fh}; "
                                f"RSS fallback: {'on' if rss_on else 'off'}"})
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df["age_days"] = df["age_days"].astype("Int64")   # whole days, blank when unknown (not 6.0)
+    return df
 
 
 def build_dim_date(start: str, end: str) -> pd.DataFrame:
