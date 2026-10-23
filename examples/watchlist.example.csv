@@ -1,0 +1,5 @@
+symbol,active,name,exchange,currency,finnhub,rss,note
+SHOP,1,,TSX,,SHOP,Shopify,Cross-listed TSX+Nasdaq; Finnhub uses the Nasdaq symbol (SHOP.TO is 403 on the free plan)
+VFV,1,,,,-,"""Vanguard S&P 500 Index ETF"" OR ""VFV ETF""",TSX-only ETF; Finnhub free plan returns 403 for VFV.TO
+RY,1,,TSX,,RY,,Cross-listed TSX+NYSE
+XEQT,0,,,,,,active=0 switches a symbol off and keeps it off

@@ -33,7 +33,7 @@ from dotenv import load_dotenv
 
 from . import (csv_import, db, export, fee_import, fx_converter, fx_rates, news, performance_store,
                snaptrade_load, snaptrade_readonly, snaptrade_sync, symbol_map, synthetic, universe,
-               watchlist)
+               watchlist, watchlist_file)
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -90,6 +90,9 @@ def main(argv: list[str] | None = None) -> int:
     wq = wsub.add_parser("search", help="find symbols in the universe by ticker or name")
     wq.add_argument("text")
     wq.add_argument("--limit", type=int, default=20)
+    wi = wsub.add_parser("import", help="apply your curated config/watchlist.csv")
+    wi.add_argument("file", nargs="?", default=str(ROOT / "config" / "watchlist.csv"))
+    wi.add_argument("--dry-run", action="store_true", help="validate and show changes, write nothing")
     wr = wsub.add_parser("remove"); wr.add_argument("symbol")
     wsub.add_parser("list")
     wm = wsub.add_parser("map", help="set how news sources look this symbol up")
@@ -215,6 +218,12 @@ def fetch_fx(conn, start: date | None, end: date | None, dry_run: bool = False) 
 def run_daily(conn, map_path: Path, source: str) -> None:
     snaptrade_daily(conn)   # optional; never blocks the rest
     fetch_fx(conn, None, None)   # cached; logs a warning and carries on if offline
+    wl_file = ROOT / "config" / "watchlist.csv"
+    if wl_file.exists():
+        try:
+            watchlist_file.import_file(conn, wl_file, rejects_dir=ROOT / "data" / "rejects")
+        except (watchlist.WatchlistError, sqlite3.Error, UnicodeDecodeError) as exc:
+            log.warning("Watchlist file skipped: %s", exc)   # never blocks sync, news or export
     try:
         watchlist.sync_from_holdings(conn)   # after SnapTrade, so new positions get news today
     except sqlite3.Error as exc:
@@ -285,6 +294,8 @@ def run_watchlist(conn, args) -> None:
             print(f"{h['symbol']:<8}{h['exchange']:<10}{h['currency']:<5}{h['asset_type']:<8}"
                   f"{h['lists'][:19]:<20}{h['watchlist']:<10}{h['name'][:40]}")
         print(f"\n{len(hits)} match(es). Add one with: watchlist add SYMBOL --from-universe [--exchange EXCH]")
+    elif args.wcmd == "import":
+        watchlist_file.import_file(conn, args.file, dry_run=args.dry_run, rejects_dir=ROOT / "data" / "rejects")
     else:
         print(f"{'SYMBOL':<10}{'ACTIVE':<8}{'ORIGIN':<9}{'DEMO':<6}{'LAST HELD':<12}NAME")
         for r in watchlist.list_rows(conn):
