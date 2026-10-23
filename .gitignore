@@ -14,5 +14,5 @@ logs/
 *.pbix.bak
 
 # Your curated watchlist (personal)
-config/watchlist.csv
+config/watchlist*
 config/watchlist.xlsx
