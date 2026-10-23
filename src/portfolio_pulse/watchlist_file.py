@@ -78,29 +78,30 @@ def _cell_text(v) -> str:
 def _parse_xlsx(path: Path) -> tuple[list[tuple[int, dict]], set[str]]:
     opx = _openpyxl()
     from openpyxl.utils.exceptions import InvalidFileException
-    try:
-        with warnings.catch_warnings():   # Excel's newer dropdown format; reading rows is unaffected
-            warnings.filterwarnings("ignore", message="Data Validation extension is not supported",
-                                    category=UserWarning)
+    # Excel saves a cross-sheet dropdown in a newer format openpyxl can't read; rows are unaffected.
+    # read_only mode parses sheets lazily, so the whole read sits inside the filter.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Data Validation extension is not supported",
+                                category=UserWarning)
+        try:
             wb = opx.load_workbook(path, read_only=True, data_only=True)
-    except (zipfile.BadZipFile, InvalidFileException, KeyError, OSError) as exc:
-        raise WatchlistError(f"{path.name} isn't a readable .xlsx file ({type(exc).__name__}).") from None
-    try:
-        if SHEET_WL not in wb.sheetnames:
-            raise WatchlistError(f"{path.name} has no '{SHEET_WL}' sheet. Recreate it with `watchlist picker`.")
-        it = wb[SHEET_WL].iter_rows(values_only=True)
-        header = [_cell_text(h).lower() for h in next(it, ())]
-        if "symbol" not in header:
-            raise WatchlistError(f"The '{SHEET_WL}' sheet needs a 'symbol' column in row 1.")
-        rows = []
-        for n, values in enumerate(it, start=2):
-            row = {h: _cell_text(v) for h, v in zip(header, values) if h}
-            if any(row.values()):
-                rows.append((n, row))
-        return rows, {h for h in header if h} - COLUMNS
-    finally:
-        wb.close()
-
+        except (zipfile.BadZipFile, InvalidFileException, KeyError, OSError) as exc:
+            raise WatchlistError(f"{path.name} isn't a readable .xlsx file ({type(exc).__name__}).") from None
+        try:
+            if SHEET_WL not in wb.sheetnames:
+                raise WatchlistError(f"{path.name} has no '{SHEET_WL}' sheet. Recreate it with `watchlist picker`.")
+            it = wb[SHEET_WL].iter_rows(values_only=True)
+            header = [_cell_text(h).lower() for h in next(it, ())]
+            if "symbol" not in header:
+                raise WatchlistError(f"The '{SHEET_WL}' sheet needs a 'symbol' column in row 1.")
+            rows = []
+            for n, values in enumerate(it, start=2):
+                row = {h: _cell_text(v) for h, v in zip(header, values) if h}
+                if any(row.values()):
+                    rows.append((n, row))
+            return rows, {h for h in header if h} - COLUMNS
+        finally:
+            wb.close()
 
 @dataclass
 class FileResult:
