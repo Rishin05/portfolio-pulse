@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
@@ -31,7 +32,24 @@ FINNHUB, RSS = "finnhub", "google_news_rss"
 RSS_WINDOW_DEFAULT, RSS_MAX_ITEMS_DEFAULT = 7, 25
 # A phrase that already uses search syntax is sent as written; a plain phrase is quoted.
 _RSS_SYNTAX = re.compile(r'["()]|\bOR\b|\bwhen:|\bsite:|(^|\s)-\S')
+PACE_SECONDS = {FINNHUB: 1.1, RSS: 1.0}   # Finnhub free plan: 60 calls/minute
+_sleep = time.sleep                        # module-level so tests can replace it
 
+
+class Pacer:
+    """Keeps at least `interval` seconds between calls to one source. Spacing only, never retries."""
+
+    def __init__(self, interval: float, clock=time.monotonic, sleep=None):
+        self.interval, self.clock, self.sleep, self._last = interval, clock, sleep, None
+
+    def wait(self) -> None:
+        now = self.clock()
+        if self._last is not None:
+            remaining = self.interval - (now - self._last)
+            if remaining > 0:
+                (self.sleep or _sleep)(remaining)
+                now += remaining
+        self._last = now
 
 def build_rss_query(phrase: str, window_days: int = RSS_WINDOW_DEFAULT) -> str:
     """'VFV ETF' -> '"VFV ETF" when:7d'; '"VFV" OR "Vanguard S&P 500"' is kept as written."""
@@ -65,6 +83,28 @@ class FinnhubKeyRejected(NewsSourceUnavailable):
 class FinnhubNotOnPlan(NewsSourceUnavailable):
     """HTTP 403: this symbol isn't available on your plan (e.g. TSX '.TO' on the free plan)."""
 
+class SourceRateLimited(NewsSourceUnavailable):
+    """HTTP 429 (or 503 from Google News): stop calling this source for the rest of the run."""
+
+    def __init__(self, source: str, retry_after: int | None = None):
+        self.source, self.retry_after = source, retry_after
+        wait = f"retry after {retry_after}s" if retry_after is not None else "try again later"
+        super().__init__(f"{source} rate limit reached ({wait}).")
+
+
+def _retry_after(resp) -> int | None:
+    """Retry-After as seconds (number or HTTP date); None if absent or unreadable."""
+    raw = (getattr(resp, "headers", None) or {}).get("Retry-After")
+    if not raw:
+        return None
+    raw = str(raw).strip()
+    if raw.isdigit():
+        return int(raw)
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    return max(0, int((when - datetime.now(timezone.utc)).total_seconds()))
 
 def normalize_url(url: str) -> str:
     """Lower-case scheme/host and drop tracking parameters so the same article dedupes."""
@@ -101,7 +141,7 @@ def fetch_finnhub(symbol: str, api_key: str, days: int = 7, session=requests) ->
                                "(TSX '.TO' symbols are 403 on the free plan). Map a US listing or skip "
                                "Finnhub for it with `watchlist map`.")
     if resp.status_code == 429:
-        raise NewsSourceUnavailable("Finnhub rate limit reached. Try again in a minute.")
+        raise SourceRateLimited(FINNHUB, _retry_after(resp))
     resp.raise_for_status()
     items = resp.json()
     if not isinstance(items, list):
@@ -142,6 +182,8 @@ def fetch_google_news_rss(query: str, session=requests, window_days: int = RSS_W
     url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(
         {"q": build_rss_query(query, window_days), "hl": "en-CA", "gl": "CA", "ceid": "CA:en"})
     resp = session.get(url, headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT)
+    if resp.status_code in (429, 503):
+        raise SourceRateLimited(RSS, _retry_after(resp))
     resp.raise_for_status()
     items = parse_rss(resp.text)
     if max_items:   # keep the newest; undated items sort last
@@ -230,7 +272,7 @@ def refresh_derived(conn) -> dict:
 
 def _empty_totals(source: str) -> dict:
     return {"source": source, "inserted": 0, "skipped": 0, "errors": 0, "fetched": 0,
-            "duplicates": 0, "linked": 0, "by_source": {}, "no_source": []}
+            "duplicates": 0, "linked": 0, "rate_limited": {}, "by_source": {}, "no_source": []}
 
 
 def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, session=requests,
@@ -254,14 +296,16 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
     if not dry_run:
         refresh_derived(conn)
     batches: dict[str, str] = {}
-    finnhub_on = use_finnhub
+    disabled: set[str] = set()                  # sources switched off for the rest of this run
+    pacers = {s: Pacer(PACE_SECONDS[s]) for s in (FINNHUB, RSS)}
     for r in symbol_map.resolve_active(conn):
         plan = ([FINNHUB] if use_finnhub and r.finnhub_symbol else []) + ([RSS] if use_rss else [])
         attempted = False
         for src in plan:
-            if src == FINNHUB and not finnhub_on:
-                continue                                    # switched off earlier by a 401
+            if src in disabled:
+                continue
             attempted = True
+            pacers[src].wait()
             try:
                 if src == FINNHUB:
                     articles = fetch_finnhub(r.finnhub_symbol, api_key, session=session)
@@ -270,7 +314,13 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
                                                      window_days=rss_window, max_items=rss_max)
             except FinnhubKeyRejected as exc:
                 log.warning("%s Finnhub is off for the rest of this run.", exc)
-                finnhub_on = False
+                disabled.add(FINNHUB)
+                totals["errors"] += 1
+                continue
+            except SourceRateLimited as exc:
+                log.warning("%s %s is off for the rest of this run; no automatic retry.", exc, src)
+                disabled.add(src)
+                totals["rate_limited"][src] = exc.retry_after
                 totals["errors"] += 1
                 continue
             except NewsSourceUnavailable as exc:
@@ -309,9 +359,10 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
     if batches:
         conn.commit()
     log.info("News (%s%s): %s fetched, %s new (%s flagged as cross-source duplicates), %s repeats, "
-             "%s linked to another symbol, %s errors; by source %s; no source: %s.",
+             "%s linked to another symbol, %s errors; by source %s; no source: %s%s.",
              source, ", dry run" if dry_run else "", totals["fetched"], totals["inserted"],
              totals["duplicates"], totals["skipped"], totals["linked"], totals["errors"],
              {k: v["fetched"] for k, v in totals["by_source"].items()} or "none",
-             totals["no_source"] or "none")
+             totals["no_source"] or "none",
+             f"; rate-limited: {totals['rate_limited']}" if totals["rate_limited"] else "")
     return totals

@@ -12,8 +12,9 @@ FH_ONE = [{"headline": "Shopify story", "url": "https://example.org/shop", "sour
 
 
 class Resp:
-    def __init__(self, status=200, payload=None, text=""):
+    def __init__(self, status=200, payload=None, text="", headers=None):
         self.status_code, self._payload, self.text = status, payload, text
+        self.headers = headers or {}
 
     def json(self):
         return self._payload
@@ -151,3 +152,52 @@ def test_bad_env_values_fall_back_to_defaults(conn, key, monkeypatch, caplog):
     news.fetch_watchlist_news(conn, "rss", session=s)
     assert "when%3A7d" in s.calls[0][0]
     assert "NEWS_RSS_WINDOW_DAYS" in caplog.text and "NEWS_RSS_MAX_ITEMS" in caplog.text
+    
+
+def test_finnhub_429_switches_finnhub_off_and_reports_retry_after(conn, key, caplog):
+    for sym in ("AAA", "BBB"):
+        wl.add_manual(conn, sym, currency="USD")
+    s = Router(finnhub=Resp(status=429, headers={"Retry-After": "30"}), rss=Resp(text=RSS_ONE))
+    res = news.fetch_watchlist_news(conn, "auto", session=s, rss_fallback=True)
+    assert s.hosts() == ["finnhub", "rss", "rss"]           # Finnhub asked once, then RSS fallback only
+    assert res["rate_limited"] == {"finnhub": 30} and res["errors"] == 1
+    assert "retry after 30s" in caplog.text and "no automatic retry" in caplog.text
+
+
+def test_rss_503_switches_rss_off_for_the_run(conn, key):
+    for sym in ("AAA", "BBB"):
+        wl.add_manual(conn, sym, currency="CAD")
+    s = Router(rss=Resp(status=503))
+    res = news.fetch_watchlist_news(conn, "rss", session=s)
+    assert s.hosts() == ["rss"]
+    assert res["rate_limited"] == {"google_news_rss": None} and res["no_source"] == ["BBB"]
+
+
+def test_retry_after_seconds_http_date_and_garbage():
+    class R:
+        headers = {"Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"}
+    assert news._retry_after(R) == 0                         # a date in the past -> 0 seconds
+    R.headers = {"Retry-After": "soon"}
+    assert news._retry_after(R) is None
+    R.headers = {}
+    assert news._retry_after(R) is None
+
+
+def test_pacer_spaces_calls_without_retrying():
+    t, slept = [100.0], []
+    p = news.Pacer(1.1, clock=lambda: t[0], sleep=slept.append)
+    p.wait()
+    t[0] += 0.5
+    p.wait()                                                  # too soon: waits the remaining 0.6 s
+    t[0] += 5
+    p.wait()                                                  # long enough apart: no wait
+    assert slept == [pytest.approx(0.6)]
+
+
+def test_fetch_paces_each_source(conn, key, monkeypatch):
+    slept = []
+    monkeypatch.setattr(news, "_sleep", slept.append)
+    for sym in ("AAA", "BBB", "CCC"):
+        wl.add_manual(conn, sym, currency="USD")
+    news.fetch_watchlist_news(conn, "auto", session=Router(finnhub=Resp(payload=FH_ONE)), rss_fallback=False)
+    assert len(slept) == 2                                    # 3 instant Finnhub calls -> 2 waits
