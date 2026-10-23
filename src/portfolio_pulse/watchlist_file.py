@@ -17,6 +17,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import warnings
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -78,7 +79,10 @@ def _parse_xlsx(path: Path) -> tuple[list[tuple[int, dict]], set[str]]:
     opx = _openpyxl()
     from openpyxl.utils.exceptions import InvalidFileException
     try:
-        wb = opx.load_workbook(path, read_only=True, data_only=True)
+        with warnings.catch_warnings():   # Excel's newer dropdown format; reading rows is unaffected
+            warnings.filterwarnings("ignore", message="Data Validation extension is not supported",
+                                    category=UserWarning)
+            wb = opx.load_workbook(path, read_only=True, data_only=True)
     except (zipfile.BadZipFile, InvalidFileException, KeyError, OSError) as exc:
         raise WatchlistError(f"{path.name} isn't a readable .xlsx file ({type(exc).__name__}).") from None
     try:

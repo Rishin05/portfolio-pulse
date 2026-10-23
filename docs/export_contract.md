@@ -24,7 +24,7 @@ SQLite connector. Only a .pbix built from DEMO data is ever shared.
 |---|---|---|
 | `fact_daily_performance.csv` | account × date | account_id, as_of_date, prev_date, start_value, end_value, currency, net_external_flow, internal_flow, flow_count, total_change, investment_change, investment_return, days_since_prev, quality_flag, source_id, source_is_demo |
 | `fact_cash_flow.csv` | one cash flow | cash_flow_id, account_id, flow_date, flow_type, amount, currency, is_external, description, source_id |
-| `fact_news.csv` | one headline | article_id, symbol, headline, url, publisher, published_at_utc, published_date_utc, fetched_at_utc, source_id, is_demo |
+| `bridge_news_symbol.csv` | article × symbol | article_id, symbol, source_id, first_seen_utc |
 | `dim_account.csv` | account | account_id, display_name, account_type, base_currency, is_demo, institution_id, connection_id |
 | `dim_watchlist.csv` | symbol | symbol, company_name, exchange, currency, active, origin, is_demo, last_seen_in_holdings |
 | `dim_source.csv` | source | source_id, display_name, kind, is_demo, usage_note |
@@ -50,12 +50,14 @@ can't be computed are omitted, never zero-filled. Never sum `cost_bps`; average 
 ## Power BI relationships (one-to-many, single direction)
 - `dim_account[account_id]` → `fact_daily_performance`, `fact_cash_flow`
 - `dim_date[date]` → `fact_daily_performance[as_of_date]`, `fact_cash_flow[flow_date]`
-- `dim_watchlist[symbol]` → `fact_news[symbol]`
+- `dim_watchlist[symbol]` → `bridge_news_symbol[symbol]` → `fact_news[article_id]` (an article can belong to several symbols; `fact_news[symbol]` is only the first one)
 - `dim_symbol_universe[listing_key]` → `bridge_universe_list[listing_key]` (one listing, many lists)
 - `dim_watchlist[symbol]` → `dim_symbol_universe[symbol]` (a symbol can trade on two exchanges, e.g. SHOP on TSX and NASDAQ)
 - `dim_source[source_id]` → all facts
 
 ## Rules for measures
+- "Published around this date" for trading day D: articles whose `market_date` is D or the weekday before D, with `duplicate_of` blank. `market_date` uses a 16:00 Toronto close and the weekday calendar (holidays not removed). The wording is a time window only: never say or imply that a headline caused a price move.
+- News status in `data_quality` uses real articles first: OK (real news within 7 days), STALE (older), DEMO (only synthetic), MISSING (none); `detail` gives the counts and the routing.
 - Each row's money is in its own `currency` column. **Never sum across currencies.**
   Today every exported performance row is CAD. Phase 3 adds CAD-converted columns.
 - Period return: compound daily returns (TWR = Π(1 + r) − 1). Never average percentages;
@@ -76,6 +78,7 @@ Tables exist since schema v2. Columns will follow `docs/data_dictionary.md`, min
 | `fact_fx_cost.csv` | 4 | Spread in bps and CAD per conversion. |
 
 ## Changelog
+- **1.5** (2026-10-22): `fact_news` gained `published_local_date`, `market_date`, `story_key`, `duplicate_of` (appended); added `bridge_news_symbol`; news `data_quality` now ranks real articles before demo and explains its reason (additive, schema v10, Phase 5).
 - **1.4** (2026-10-22): added `dim_symbol_universe` and `bridge_universe_list` (additive, schema v9, Phase 5). `weight_pct` is a weight inside its own fund; never compare it across lists.
 - **1.3** (2026-10-22): `dim_watchlist` gained `origin` (demo / holding / manual), `is_demo` and `last_seen_in_holdings`, appended at the end (additive, schema v7, Phase 5).
 - **1.2** (2026-10-20): added `dim_fee_schedule`, `dim_fx_posted_rate`, `fact_fx_cost` (additive, schema v6, Phase 4).

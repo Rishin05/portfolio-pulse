@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import fx_converter, news
+from . import fx_converter, news, symbol_map
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +23,29 @@ STALE_SNAPSHOT_DAYS = 4   # more than a long weekend
 def _q(conn, sql: str) -> pd.DataFrame:
     return pd.read_sql_query(sql, conn)
 
+NEWS_QUALITY_SQL = """
+WITH sym_articles AS (                 -- links (migration 010) plus the first symbol, in case not refreshed
+    SELECT article_id, symbol FROM news_article_symbol
+    UNION
+    SELECT article_id, symbol FROM news_article
+)
+SELECT w.symbol,
+       SUM(CASE WHEN src.is_demo = 0 AND n.duplicate_of IS NULL THEN 1 ELSE 0 END) AS real_n,
+       SUM(CASE WHEN src.is_demo = 1 THEN 1 ELSE 0 END) AS demo_n,
+       SUM(CASE WHEN n.duplicate_of IS NOT NULL THEN 1 ELSE 0 END) AS dup_n,
+       SUM(CASE WHEN n.article_id IS NOT NULL AND n.published_at_utc IS NULL THEN 1 ELSE 0 END) AS no_ts,
+       MAX(CASE WHEN src.is_demo = 0
+                THEN COALESCE(n.published_local_date, substr(n.published_at_utc, 1, 10)) END) AS last_real,
+       MAX(CASE WHEN src.is_demo = 1
+                THEN COALESCE(n.published_local_date, substr(n.published_at_utc, 1, 10)) END) AS last_demo
+FROM watchlist w
+LEFT JOIN sym_articles sa ON sa.symbol = w.symbol
+LEFT JOIN news_article n ON n.article_id = sa.article_id
+LEFT JOIN source src ON src.source_id = n.source_id
+WHERE w.active = 1
+GROUP BY w.symbol
+ORDER BY w.symbol
+"""
 
 def build_quality(conn, today: date | None = None) -> pd.DataFrame:
     today = today or date.today()
@@ -40,19 +63,25 @@ def build_quality(conn, today: date | None = None) -> pd.DataFrame:
         rows.append({"area": "portfolio", "item": r["account_id"], "status": status,
                      "last_date": r["last_date"], "age_days": age,
                      "detail": f"{r['n']} snapshots, {r['gaps'] or 0} multi-day gaps"})
-    for r in conn.execute("""
-        SELECT w.symbol, MAX(n.published_at_utc) AS last_pub, COUNT(n.article_id) AS n,
-               SUM(CASE WHEN n.published_at_utc IS NULL THEN 1 ELSE 0 END) AS no_ts,
-               MAX(src.is_demo) AS demo
-        FROM watchlist w LEFT JOIN news_article n ON n.symbol = w.symbol
-        LEFT JOIN source src ON src.source_id = n.source_id
-        WHERE w.active = 1 GROUP BY w.symbol"""):
-        last = datetime.fromisoformat(r["last_pub"].replace("Z", "+00:00")).date() if r["last_pub"] else None
-        age = (today - last).days if last else None
-        status = ("MISSING" if r["n"] == 0 else "DEMO" if r["demo"] else
-                  "STALE" if age is None or age > STALE_NEWS_DAYS else "OK")
-        rows.append({"area": "news", "item": r["symbol"], "status": status, "last_date": str(last) if last else None,
-                     "age_days": age, "detail": f"{r['n']} articles, {r['no_ts'] or 0} without timestamp"})
+    routes = {r.symbol: r for r in symbol_map.resolve_active(conn)}
+    rss_on = news._env_flag("NEWS_RSS_FALLBACK")
+    for r in conn.execute(NEWS_QUALITY_SQL):
+        if r["real_n"]:                                     # real news first
+            last = r["last_real"]
+            age = (today - date.fromisoformat(last)).days if last else None
+            status = "OK" if age is not None and age <= STALE_NEWS_DAYS else "STALE"
+        elif r["demo_n"]:
+            last = r["last_demo"]
+            age = (today - date.fromisoformat(last)).days if last else None
+            status = "DEMO"
+        else:
+            last, age, status = None, None, "MISSING"
+        route = routes.get(r["symbol"])
+        fh = (route.finnhub_symbol or f"skipped ({route.finnhub_basis})") if route else "-"
+        rows.append({"area": "news", "item": r["symbol"], "status": status, "last_date": last, "age_days": age,
+                     "detail": f"{r['real_n']} real, {r['demo_n']} demo, {r['dup_n']} cross-source duplicates, "
+                               f"{r['no_ts']} without timestamp; Finnhub: {fh}; "
+                               f"RSS fallback: {'on' if rss_on else 'off'}"})
     return pd.DataFrame(rows)
 
 
@@ -80,8 +109,11 @@ def export_all(conn, out_dir: str | Path) -> dict[str, int]:
                                    "is_external, description, source_id FROM cash_flow ORDER BY flow_date"),
         "fact_news": _q(conn, "SELECT n.article_id, n.symbol, n.headline, n.url, n.publisher, n.published_at_utc, "
                               "substr(n.published_at_utc, 1, 10) AS published_date_utc, n.fetched_at_utc, "
-                              "n.source_id, s.is_demo FROM news_article n JOIN source s USING (source_id) "
+                              "n.source_id, s.is_demo, n.published_local_date, n.market_date, n.story_key, "
+                              "n.duplicate_of FROM news_article n JOIN source s USING (source_id) "
                               "ORDER BY n.published_at_utc DESC"),
+        "bridge_news_symbol": _q(conn, "SELECT article_id, symbol, source_id, first_seen_utc "
+                                       "FROM news_article_symbol ORDER BY symbol, article_id"),
         "dim_account": _q(conn, "SELECT * FROM account"),
         "dim_watchlist": _q(conn, "SELECT symbol, company_name, exchange, currency, active, origin, is_demo, "
                                   "last_seen_in_holdings FROM watchlist ORDER BY symbol"),
