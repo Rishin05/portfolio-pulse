@@ -33,6 +33,8 @@ SQLite connector. Only a .pbix built from DEMO data is ever shared.
 | `export_info.csv` | one row | exported_at_utc, note |
 | `dim_fee_schedule.csv` | fee row | fee_schedule_id, institution_id, fee_type, applies_to, rate_bps, flat_amount, flat_currency, effective_from, effective_to, source_url, date_checked, notes, is_demo |
 | `dim_fx_posted_rate.csv` | institution × date × channel | fx_posted_rate_id, institution_id, base_currency, quote_currency, rate_date, channel, customer_buy_rate, customer_sell_rate, source_url, date_checked, notes, is_demo |
+| `dim_symbol_universe.csv` | listing (symbol × exchange) | listing_key, symbol, exchange, currency, asset_type, name, sector, lists, holdings_as_of, is_demo |
+| `bridge_universe_list.csv` | list × listing | list_id, listing_key, weight_pct, holdings_as_of, fund_name, is_demo |
 | `fact_fx_cost.csv` | institution × date × direction × amount | as_of_date, institution_id, model, channel, from_currency, to_currency, amount, boc_rate, boc_rate_date, boc_status, platform_rate, received_at_benchmark, received_via_platform, notional_cad, cost_cad, cost_bps, quality_label, source_ref, source_url, date_checked, is_demo |
 
 `fact_fx_cost`: the Bank of Canada rate is an indicative reference rate (CAD per 1 USD), not a tradable
@@ -49,6 +51,8 @@ can't be computed are omitted, never zero-filled. Never sum `cost_bps`; average 
 - `dim_account[account_id]` → `fact_daily_performance`, `fact_cash_flow`
 - `dim_date[date]` → `fact_daily_performance[as_of_date]`, `fact_cash_flow[flow_date]`
 - `dim_watchlist[symbol]` → `fact_news[symbol]`
+- `dim_symbol_universe[listing_key]` → `bridge_universe_list[listing_key]` (one listing, many lists)
+- `dim_watchlist[symbol]` → `dim_symbol_universe[symbol]` (a symbol can trade on two exchanges, e.g. SHOP on TSX and NASDAQ)
 - `dim_source[source_id]` → all facts
 
 ## Rules for measures
@@ -72,6 +76,7 @@ Tables exist since schema v2. Columns will follow `docs/data_dictionary.md`, min
 | `fact_fx_cost.csv` | 4 | Spread in bps and CAD per conversion. |
 
 ## Changelog
+- **1.4** (2026-10-22): added `dim_symbol_universe` and `bridge_universe_list` (additive, schema v9, Phase 5). `weight_pct` is a weight inside its own fund; never compare it across lists.
 - **1.3** (2026-10-22): `dim_watchlist` gained `origin` (demo / holding / manual), `is_demo` and `last_seen_in_holdings`, appended at the end (additive, schema v7, Phase 5).
 - **1.2** (2026-10-20): added `dim_fee_schedule`, `dim_fx_posted_rate`, `fact_fx_cost` (additive, schema v6, Phase 4).
 - **1.2** (2026-10-20): added `dim_fee_schedule`, `dim_fx_posted_rate`, `fact_fx_cost` (additive, schema v6, Phase 4).

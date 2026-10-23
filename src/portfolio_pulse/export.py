@@ -93,7 +93,18 @@ def export_all(conn, out_dir: str | Path) -> dict[str, int]:
                                        "rate_date, channel, customer_buy_rate, customer_sell_rate, source_url, "
                                        "date_checked, notes, is_demo FROM fx_posted_rate "
                                        "ORDER BY institution_id, rate_date, channel"),
+        "dim_symbol_universe": _q(conn, "SELECT symbol || '|' || exchange AS listing_key, symbol, exchange, "
+                                        "MAX(currency) AS currency, MAX(asset_type) AS asset_type, MAX(name) AS name, "
+                                        "MAX(sector) AS sector, GROUP_CONCAT(list_id) AS lists, "
+                                        "MAX(holdings_as_of) AS holdings_as_of, MAX(is_demo) AS is_demo "
+                                        "FROM symbol_universe GROUP BY symbol, exchange ORDER BY symbol, exchange"),
+        "bridge_universe_list": _q(conn, "SELECT list_id, symbol || '|' || exchange AS listing_key, weight_pct, "
+                                         "holdings_as_of, fund_name, is_demo FROM symbol_universe "
+                                         "ORDER BY list_id, symbol, exchange"),
     }
+    dsu = tables["dim_symbol_universe"]
+    if not dsu.empty:
+        dsu["lists"] = dsu["lists"].map(lambda s: ",".join(sorted(set(s.split(",")))) if s else s)
     fx_rows, fx_skipped = fx_converter.cost_grid(conn)
     tables["fact_fx_cost"] = pd.DataFrame(fx_rows, columns=fx_converter.COST_COLUMNS)
     if fx_skipped:

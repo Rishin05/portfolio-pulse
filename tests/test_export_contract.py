@@ -30,6 +30,9 @@ CONTRACT = {
     "dim_fx_posted_rate": ["fx_posted_rate_id", "institution_id", "base_currency", "quote_currency",
                            "rate_date", "channel", "customer_buy_rate", "customer_sell_rate", "source_url",
                            "date_checked", "notes", "is_demo"],
+    "dim_symbol_universe": ["listing_key", "symbol", "exchange", "currency", "asset_type", "name", "sector",
+                            "lists", "holdings_as_of", "is_demo"],
+    "bridge_universe_list": ["list_id", "listing_key", "weight_pct", "holdings_as_of", "fund_name", "is_demo"],
     "fact_fx_cost": ["as_of_date", "institution_id", "model", "channel", "from_currency", "to_currency",
                      "amount", "boc_rate", "boc_rate_date", "boc_status", "platform_rate",
                      "received_at_benchmark", "received_via_platform", "notional_cad", "cost_cad", "cost_bps",
@@ -62,3 +65,25 @@ def test_dim_watchlist_labels_demo_rows(exported):
         rows = list(csv.DictReader(f))
     assert [r["symbol"] for r in rows] == ["RY", "SHOP", "XEQT"]
     assert {(r["origin"], r["is_demo"]) for r in rows} == {("demo", "1")}
+
+
+def test_universe_export_is_one_row_per_listing_plus_bridge(conn, tmp_path):
+    """Contract 1.4: dim = one row per SYMBOL|EXCHANGE with sorted lists; bridge = one row per membership."""
+    from portfolio_pulse import universe
+    synthetic.load_demo(conn)
+    a = tmp_path / "a.csv"
+    a.write_text("symbol,name,exchange\nSHOP,Shopify Inc,NASDAQ\nVFV,Vanguard S&P 500 Index ETF,TSX\n",
+                 encoding="utf-8")
+    b = tmp_path / "b.csv"
+    b.write_text("symbol,name,exchange\nVFV,Vanguard S&P 500 Index ETF,TSX\n", encoding="utf-8")
+    universe.import_list(conn, b, "ZLIST")
+    universe.import_list(conn, a, "MANUAL")
+    out = tmp_path / "pbi"
+    export.export_all(conn, out)
+    with open(out / "dim_symbol_universe.csv", newline="", encoding="utf-8") as f:
+        dim = list(csv.DictReader(f))
+    with open(out / "bridge_universe_list.csv", newline="", encoding="utf-8") as f:
+        bridge = list(csv.DictReader(f))
+    assert [(r["listing_key"], r["lists"]) for r in dim] == [("SHOP|NASDAQ", "MANUAL"), ("VFV|TSX", "MANUAL,ZLIST")]
+    assert [(r["list_id"], r["listing_key"]) for r in bridge] == [
+        ("MANUAL", "SHOP|NASDAQ"), ("MANUAL", "VFV|TSX"), ("ZLIST", "VFV|TSX")]

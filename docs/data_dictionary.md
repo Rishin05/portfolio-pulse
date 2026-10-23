@@ -197,6 +197,11 @@ Headlines only: headline, publisher, UTC timestamp and a link to the original ar
 
 Rows are never deleted (news_article has a foreign key to `symbol`); a sold or removed symbol becomes `active = 0` and keeps its news history.
 
+### `symbol_universe` (migration 009) and `symbol_map` (migration 008)
+`symbol_universe` is a searchable catalogue, not the watchlist: one row per (list_id, symbol, exchange), loaded with `universe-import` from iShares holdings files you download yourself (IVV = S&P 500, IWM = Russell 2000, XIU = S&P/TSX 60, XEQT = look-through of its funds) or your own CSV (list `MANUAL`). Each list mirrors its latest file: the same file again changes nothing, a newer file adds/updates/removes rows, an older file or a file whose title doesn't match the list id is refused. `currency` is the trading currency derived from the exchange (the Canadian files' `Currency` column is the fund's reporting currency). `weight_pct` is the weight inside that fund only.
+
+`symbol_map` says how each watchlist symbol is looked up by each news source: `finnhub_symbol` (NULL in a row = never use Finnhub; no row = default rule: USD -> same symbol, otherwise skip), `rss_query` (falls back to `watchlist.news_query`, then `company_name`), `note` and `checked_on`. Finnhub's free plan returned HTTP 403 for TSX `.TO` symbols when probed on 2026-10-22.
+
 ## Activity types and the performance rule
 
 | activity_type | Typical sign | External flow (F)? | Treatment |
