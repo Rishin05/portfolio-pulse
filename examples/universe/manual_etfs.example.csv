@@ -1,0 +1,4 @@
+symbol,name,exchange,currency,asset_type
+VFV,Vanguard S&P 500 Index ETF,TSX,CAD,etf
+XEQT,iShares Core Equity ETF Portfolio,TSX,CAD,etf
+VTI,Vanguard Total Stock Market ETF,NYSE_ARCA,USD,etf
