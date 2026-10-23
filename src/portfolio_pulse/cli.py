@@ -90,9 +90,11 @@ def main(argv: list[str] | None = None) -> int:
     wq = wsub.add_parser("search", help="find symbols in the universe by ticker or name")
     wq.add_argument("text")
     wq.add_argument("--limit", type=int, default=20)
-    wi = wsub.add_parser("import", help="apply your curated config/watchlist.csv")
-    wi.add_argument("file", nargs="?", default=str(ROOT / "config" / "watchlist.csv"))
+    wi = wsub.add_parser("import", help="apply config/watchlist.xlsx (or .csv)")
+    wi.add_argument("file", nargs="?", default=None, help="default: config/watchlist.xlsx, else .csv")
     wi.add_argument("--dry-run", action="store_true", help="validate and show changes, write nothing")
+    wp = wsub.add_parser("picker", help="write config/watchlist.xlsx with a searchable symbol dropdown")
+    wp.add_argument("--out", default=str(ROOT / "config" / "watchlist.xlsx"))
     wr = wsub.add_parser("remove"); wr.add_argument("symbol")
     wsub.add_parser("list")
     wm = wsub.add_parser("map", help="set how news sources look this symbol up")
@@ -218,11 +220,13 @@ def fetch_fx(conn, start: date | None, end: date | None, dry_run: bool = False) 
 def run_daily(conn, map_path: Path, source: str) -> None:
     snaptrade_daily(conn)   # optional; never blocks the rest
     fetch_fx(conn, None, None)   # cached; logs a warning and carries on if offline
-    wl_file = ROOT / "config" / "watchlist.csv"
-    if wl_file.exists():
+    wl_file, note = watchlist_file.default_path(ROOT / "config")
+    if note:
+        log.warning(note)
+    if wl_file is not None:
         try:
             watchlist_file.import_file(conn, wl_file, rejects_dir=ROOT / "data" / "rejects")
-        except (watchlist.WatchlistError, sqlite3.Error, UnicodeDecodeError) as exc:
+        except (watchlist.WatchlistError, sqlite3.Error, UnicodeDecodeError, OSError) as exc:
             log.warning("Watchlist file skipped: %s", exc)   # never blocks sync, news or export
     try:
         watchlist.sync_from_holdings(conn)   # after SnapTrade, so new positions get news today
@@ -295,7 +299,17 @@ def run_watchlist(conn, args) -> None:
                   f"{h['lists'][:19]:<20}{h['watchlist']:<10}{h['name'][:40]}")
         print(f"\n{len(hits)} match(es). Add one with: watchlist add SYMBOL --from-universe [--exchange EXCH]")
     elif args.wcmd == "import":
-        watchlist_file.import_file(conn, args.file, dry_run=args.dry_run, rejects_dir=ROOT / "data" / "rejects")
+        path = args.file
+        if path is None:
+            path, note = watchlist_file.default_path(ROOT / "config")
+            if note:
+                log.warning(note)
+            if path is None:
+                raise watchlist.WatchlistError("No config/watchlist.xlsx or config/watchlist.csv found. "
+                                               "Create one with `watchlist picker`.")
+        watchlist_file.import_file(conn, path, dry_run=args.dry_run, rejects_dir=ROOT / "data" / "rejects")
+    elif args.wcmd == "picker":
+        watchlist_file.write_picker(conn, args.out)
     else:
         print(f"{'SYMBOL':<10}{'ACTIVE':<8}{'ORIGIN':<9}{'DEMO':<6}{'LAST HELD':<12}NAME")
         for r in watchlist.list_rows(conn):
