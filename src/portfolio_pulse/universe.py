@@ -340,12 +340,14 @@ SELECT u.symbol, u.exchange, MAX(u.name) AS name, MAX(u.currency) AS currency,
        MIN(CASE WHEN u.symbol = :q THEN 0
                 WHEN u.symbol LIKE :pre ESCAPE '\' THEN 1
                 WHEN upper(u.name) LIKE :pre ESCAPE '\' OR upper(u.name) LIKE :word ESCAPE '\' THEN 2
-                ELSE 3 END) AS rank
+                ELSE 3 END) AS rank,
+       MIN(CASE u.list_id WHEN 'IVV' THEN 0 WHEN 'XIU' THEN 0 WHEN 'IWB' THEN 0
+                          WHEN 'XEQT' THEN 1 WHEN 'XIC' THEN 1 WHEN 'IWM' THEN 3 ELSE 2 END) AS tier
 FROM symbol_universe u
 LEFT JOIN watchlist w ON w.symbol = u.symbol
 WHERE u.symbol LIKE :pre ESCAPE '\' OR upper(u.name) LIKE :any ESCAPE '\'
 GROUP BY u.symbol, u.exchange
-ORDER BY rank, weight DESC, u.symbol
+ORDER BY rank, tier, weight DESC, u.symbol
 LIMIT :limit
 """
 

@@ -73,3 +73,16 @@ def test_cli_search_and_add_from_universe(loaded, tmp_path, capsys):
     assert cli.main(["--db", path, "watchlist", "add", "SHOP", "--from-universe", "--exchange", "TSX"]) == 0
     r = loaded.execute("SELECT company_name, exchange, currency, origin FROM watchlist WHERE symbol = 'SHOP'").fetchone()
     assert tuple(r) == ("SHOPIFY SUBORDINATE VOTI", "TSX", "CAD", "manual")
+
+
+
+def test_large_cap_lists_rank_before_small_cap_weight(conn, tmp_path):
+    ivv = tmp_path / "IVV_holdings.xls"
+    ivv.write_bytes(workbook(titles("iShares Core S&P 500 ETF", "Oct 21, 2026") + [US_HEADER,
+        ["BNY", "BANK OF NEW YORK MELLON CORP", "Financials", "Equity", "1", "0.2", "NYSE", "USD"]]))
+    iwm = tmp_path / "IWM_holdings.xls"
+    iwm.write_bytes(workbook(titles("iShares Russell 2000 ETF", "Oct 21, 2026") + [US_HEADER,
+        ["UBSI", "UNITED BANKSHARES", "Financials", "Equity", "1", "0.3", "NASDAQ", "USD"]]))
+    u.import_list(conn, ivv, "IVV")
+    u.import_list(conn, iwm, "IWM")
+    assert [h["symbol"] for h in u.search(conn, "bank")] == ["BNY", "UBSI"]
