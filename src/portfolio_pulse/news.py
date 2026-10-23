@@ -22,7 +22,7 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from . import db, symbol_map
+from . import db, news_time, symbol_map
 
 log = logging.getLogger(__name__)
 TIMEOUT = 15
@@ -149,23 +149,88 @@ def fetch_google_news_rss(query: str, session=requests, window_days: int = RSS_W
     return items
 
 
-def store_articles(conn, symbol: str, articles: list[dict], source_id: str, batch_id: str) -> tuple[int, int]:
+_DUPLICATE_SQL = """
+SELECT n.article_id FROM news_article n
+JOIN news_article_symbol s ON s.article_id = n.article_id
+WHERE s.symbol = ? AND n.story_key = ? AND n.duplicate_of IS NULL AND n.article_id <> ?
+  AND n.published_local_date BETWEEN ? AND ?
+ORDER BY n.published_at_utc LIMIT 1
+"""
+
+
+def _find_duplicate(conn, symbol: str, key: str | None, local: str | None, article_id: str) -> str | None:
+    """Same story for the same symbol within +/-1 Toronto day, from a different link."""
+    if not key or not local:
+        return None
+    d = date.fromisoformat(local)
+    row = conn.execute(_DUPLICATE_SQL, (symbol, key, article_id, (d - timedelta(days=1)).isoformat(),
+                                        (d + timedelta(days=1)).isoformat())).fetchone()
+    return row["article_id"] if row else None
+
+
+def store_articles(conn, symbol: str, articles: list[dict], source_id: str, batch_id: str,
+                   stats: dict | None = None) -> tuple[int, int]:
+    """Insert new articles and link each to `symbol`. Returns (new articles, exact repeats).
+
+    stats (optional) accumulates 'duplicates' (new rows flagged duplicate_of) and 'linked'
+    (an existing article newly linked to this symbol).
+    """
     now = db.utc_now()
     ins = skip = 0
     for a in articles:
-        new = db.insert_ignore(conn, "news_article", {
-            "article_id": db.stable_id(normalize_url(a["url"])), "symbol": symbol,
-            "headline": a["headline"][:300], "url": a["url"], "publisher": a.get("publisher"),
-            "published_at_utc": a.get("published_at_utc"), "fetched_at_utc": now,
-            "source_id": source_id, "batch_id": batch_id})
-        ins += new
-        skip += not new
+        aid = db.stable_id(normalize_url(a["url"]))
+        exists = conn.execute("SELECT 1 FROM news_article WHERE article_id = ?", (aid,)).fetchone()
+        if exists is None:
+            published = a.get("published_at_utc")
+            key = news_time.story_key(a["headline"], a.get("publisher"))
+            local = news_time.local_date(published)
+            dup = _find_duplicate(conn, symbol, key, local, aid)
+            db.insert_ignore(conn, "news_article", {
+                "article_id": aid, "symbol": symbol, "headline": a["headline"][:300], "url": a["url"],
+                "publisher": a.get("publisher"), "published_at_utc": published, "fetched_at_utc": now,
+                "source_id": source_id, "batch_id": batch_id, "published_local_date": local,
+                "market_date": news_time.market_date(published), "story_key": key, "duplicate_of": dup})
+            ins += 1
+            if dup and stats is not None:
+                stats["duplicates"] = stats.get("duplicates", 0) + 1
+        linked = db.insert_ignore(conn, "news_article_symbol", {
+            "article_id": aid, "symbol": symbol, "source_id": source_id, "first_seen_utc": now})
+        if exists is not None:
+            if linked:
+                if stats is not None:
+                    stats["linked"] = stats.get("linked", 0) + 1
+            else:
+                skip += 1
     return ins, skip
+
+
+def refresh_derived(conn) -> dict:
+    """Fill Toronto dates and story keys, and link any article not yet in news_article_symbol.
+
+    Idempotent. Needed because SQLite can't do time-zone conversion, and because older rows
+    (and the demo generator) write news_article only.
+    """
+    rows = conn.execute(
+        "SELECT article_id, headline, publisher, published_at_utc FROM news_article "
+        "WHERE story_key IS NULL OR (published_at_utc IS NOT NULL AND published_local_date IS NULL)").fetchall()
+    for r in rows:
+        conn.execute("UPDATE news_article SET published_local_date = ?, market_date = ?, story_key = ? "
+                     "WHERE article_id = ?",
+                     (news_time.local_date(r["published_at_utc"]), news_time.market_date(r["published_at_utc"]),
+                      news_time.story_key(r["headline"], r["publisher"]), r["article_id"]))
+    linked = conn.execute(
+        "INSERT INTO news_article_symbol (article_id, symbol, source_id, first_seen_utc) "
+        "SELECT n.article_id, n.symbol, n.source_id, n.fetched_at_utc FROM news_article n "
+        "WHERE NOT EXISTS (SELECT 1 FROM news_article_symbol s "
+        "                  WHERE s.article_id = n.article_id AND s.symbol = n.symbol)").rowcount
+    if rows or linked:
+        conn.commit()
+    return {"filled": len(rows), "linked": linked}
 
 
 def _empty_totals(source: str) -> dict:
     return {"source": source, "inserted": 0, "skipped": 0, "errors": 0, "fetched": 0,
-            "by_source": {}, "no_source": []}
+            "duplicates": 0, "linked": 0, "by_source": {}, "no_source": []}
 
 
 def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, session=requests,
@@ -186,6 +251,8 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
         return _empty_totals("none")
 
     totals = _empty_totals(source)
+    if not dry_run:
+        refresh_derived(conn)
     batches: dict[str, str] = {}
     finnhub_on = use_finnhub
     for r in symbol_map.resolve_active(conn):
@@ -224,7 +291,7 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
             if not dry_run:
                 if src not in batches:
                     batches[src] = db.start_batch(conn, src, f"news via {src}")
-                ins, skip = store_articles(conn, r.symbol, articles, src, batches[src])
+                ins, skip = store_articles(conn, r.symbol, articles, src, batches[src], stats=totals)
                 per["inserted"] += ins
                 per["skipped"] += skip
                 totals["inserted"] += ins
@@ -241,9 +308,10 @@ def fetch_watchlist_news(conn, source: str = "auto", dry_run: bool = False, sess
                         skipped=per["skipped"], rejected=0)
     if batches:
         conn.commit()
-    log.info("News (%s%s): %s fetched, %s new, %s duplicates, %s errors; by source %s; no source: %s.",
+    log.info("News (%s%s): %s fetched, %s new (%s flagged as cross-source duplicates), %s repeats, "
+             "%s linked to another symbol, %s errors; by source %s; no source: %s.",
              source, ", dry run" if dry_run else "", totals["fetched"], totals["inserted"],
-             totals["skipped"], totals["errors"],
+             totals["duplicates"], totals["skipped"], totals["linked"], totals["errors"],
              {k: v["fetched"] for k, v in totals["by_source"].items()} or "none",
              totals["no_source"] or "none")
     return totals

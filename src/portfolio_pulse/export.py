@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import fx_converter
+from . import fx_converter, news
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +65,8 @@ def build_dim_date(start: str, end: str) -> pd.DataFrame:
 
 
 def export_all(conn, out_dir: str | Path) -> dict[str, int]:
+    news.refresh_derived(conn)   # idempotent: Toronto dates, story keys, article-symbol links
+    out = Path(out_dir)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     perf = _q(conn, "SELECT p.*, s.is_demo AS source_is_demo FROM v_daily_performance p "
