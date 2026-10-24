@@ -10,7 +10,7 @@ Commands
   export                        write CSVs for Power BI to data/powerbi/
   fetch-fx [--start] [--end]    cache Bank of Canada daily FX rates (only dates not yet stored)
   performance                   rebuild engine v2 results (account + household, USD + CAD) and summarize
-  run-daily                     SnapTrade pull+load (if keys set) + BoC FX + fetch-news + data/inbox/ + export
+  run-daily                     all daily steps, each isolated; exit 0 ok, 1 partial, 2 export failed, 3 already running
   snaptrade-connect [--broker]  print a one-time, read-only SnapTrade Connection Portal link
   snaptrade-pull [--dry-run]    save masked raw SnapTrade JSON to data/raw/snaptrade/
   snaptrade-load [--dry-run]    load the newest raw pull into the database (re-run: 0 new rows)
@@ -32,8 +32,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from . import (csv_import, db, export, fee_import, fx_converter, fx_rates, news, performance_store,
-               snaptrade_load, snaptrade_readonly, snaptrade_sync, symbol_map, synthetic, universe,
-               watchlist, watchlist_file)
+               pipeline, snaptrade_load, snaptrade_readonly, snaptrade_sync, symbol_map, synthetic,
+               universe, watchlist, watchlist_file)
 
 ROOT = db.PROJECT_ROOT
 log = logging.getLogger("portfolio_pulse")
@@ -180,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
                 log.error("Performance not computed: %s", exc)
                 return 2
         elif args.cmd == "run-daily":
-            run_daily(conn, Path(args.map), args.source)
+            return run_daily(conn, Path(args.map), args.source)   # finally still closes conn
         elif args.cmd == "snaptrade-connect":
             snaptrade_connect(args.broker)
         elif args.cmd == "snaptrade-pull":
@@ -217,39 +217,124 @@ def fetch_fx(conn, start: date | None, end: date | None, dry_run: bool = False) 
     return True
 
 
-def run_daily(conn, map_path: Path, source: str) -> None:
-    snaptrade_daily(conn)   # optional; never blocks the rest
-    fetch_fx(conn, None, None)   # cached; logs a warning and carries on if offline
+def run_daily(conn, map_path: Path, source: str) -> int:
+    """Run every daily step in isolation and return an exit code for Task Scheduler.
+
+    Order: SnapTrade -> BoC FX -> watchlist file -> watchlist sync -> news -> data/inbox/
+    -> performance -> export. A failed step is logged, rolled back and recorded; the rest
+    still run. Only a failed export (the Power BI refresh) is critical (exit code 2).
+    """
+    steps = [
+        pipeline.Step("snaptrade", lambda: _step_snaptrade(conn)),
+        pipeline.Step("fx_rates", lambda: _step_fx(conn)),
+        pipeline.Step("watchlist_file", lambda: _step_watchlist_file(conn)),
+        pipeline.Step("watchlist_sync", lambda: _step_watchlist_sync(conn)),
+        pipeline.Step("news", lambda: _step_news(conn, source)),
+        pipeline.Step("inbox_csv", lambda: _step_inbox(conn, map_path)),
+        pipeline.Step("performance", lambda: _step_performance(conn)),
+        pipeline.Step("export", lambda: _step_export(conn), critical=True),
+    ]
+    try:
+        with pipeline.RunLock(ROOT / "logs" / "run-daily.lock"):
+            report = pipeline.run_steps(steps, on_failure=conn.rollback)
+    except pipeline.RunLocked as exc:
+        log.error("%s", exc)
+        return pipeline.EXIT_LOCKED
+    level = logging.INFO if report.exit_code == pipeline.EXIT_OK else logging.WARNING
+    for line in pipeline.summary_lines(report):
+        log.log(level, line)
+    try:
+        path = pipeline.write_run_log(report, ROOT / "logs" / "run-daily")
+        log.info("Run log: %s", path.relative_to(ROOT))
+    except OSError as exc:
+        log.warning("Run log not written: %s", exc)
+    return report.exit_code
+
+
+def _step_snaptrade(conn) -> str:
+    """Pull + load SnapTrade (read-only) if keys are set."""
+    try:
+        snaptrade_readonly.load_credentials()
+    except snaptrade_readonly.SnapTradeConfigError:
+        raise pipeline.StepSkipped("no SnapTrade keys in .env (optional)") from None
+    try:
+        client = snaptrade_readonly.ReadOnlySnapTrade()
+        res = snaptrade_sync.pull_raw(client, ROOT / "data" / "raw" / "snaptrade")
+        for err in res.errors:
+            log.warning(err)
+        snaptrade_load_cmd(conn, str(res.folder), dry_run=False)
+    except (snaptrade_readonly.SnapTradeError, snaptrade_load.RawDataError) as exc:
+        raise pipeline.StepFailed(str(exc)) from exc
+    detail = f"{res.accounts} account(s), {res.positions} position(s), {res.activities} activity row(s)"
+    return detail + (f"; {len(res.errors)} warning(s)" if res.errors else "")
+
+
+def _step_fx(conn) -> str:
+    res = fx_rates.sync_boc_rates(conn, start=None, end=None)
+    if res["status"] == "unavailable":
+        raise pipeline.StepFailed("Bank of Canada unreachable; cached rates stay in use until the next run")
+    return f"BoC sync: {res['status']}"
+
+
+def _step_watchlist_file(conn) -> str:
     wl_file, note = watchlist_file.default_path(ROOT / "config")
+    if wl_file is None:
+        raise pipeline.StepSkipped(note or "no config/watchlist.xlsx or config/watchlist.csv")
     if note:
         log.warning(note)
-    if wl_file is not None:
-        try:
-            watchlist_file.import_file(conn, wl_file, rejects_dir=ROOT / "data" / "rejects")
-        except (watchlist.WatchlistError, sqlite3.Error, UnicodeDecodeError, OSError) as exc:
-            log.warning("Watchlist file skipped: %s", exc)   # never blocks sync, news or export
-    try:
-        watchlist.sync_from_holdings(conn)   # after SnapTrade, so new positions get news today
-    except sqlite3.Error as exc:
-        log.warning("Watchlist sync skipped: %s", exc)   # never blocks news or export
+    watchlist_file.import_file(conn, wl_file, rejects_dir=ROOT / "data" / "rejects")
+    return f"imported {wl_file.name}"
+
+
+def _step_watchlist_sync(conn) -> None:
+    watchlist.sync_from_holdings(conn)   # after SnapTrade, so new positions get news today
+
+
+def _step_news(conn, source: str) -> None:
     try:
         news.fetch_watchlist_news(conn, source)
     except news.NewsSourceUnavailable as exc:
-        log.warning("News step skipped: %s", exc)   # news failing must not block the rest
-    inbox = ROOT / "data" / "inbox"
-    files = sorted(inbox.glob("*.csv"))
-    if files and not map_path.exists():
-        log.warning("Found %s file(s) in data/inbox but no %s. Copy config/column_map.example.json "
-                    "to column_map.json and edit it.", len(files), map_path.name)
-    elif files:
+        raise pipeline.StepFailed(str(exc)) from exc
+
+
+def _step_inbox(conn, map_path: Path) -> str:
+    files = sorted((ROOT / "data" / "inbox").glob("*.csv"))
+    if not files:
+        raise pipeline.StepSkipped("data/inbox/ has no CSV files")
+    if not map_path.exists():
+        raise pipeline.StepFailed(f"{len(files)} file(s) in data/inbox/ but no {map_path.name}. Copy "
+                                  "config/column_map.example.json to column_map.json and edit it.")
+    try:
         mapping = csv_import.load_mapping(map_path)
-        for f in files:
-            csv_import.import_csv(conn, f, mapping, rejects_dir=ROOT / "data" / "rejects")
+    except csv_import.ImportConfigError as exc:
+        raise pipeline.StepFailed(str(exc)) from exc
+    failed, rejected = [], 0
+    for f in files:
+        try:
+            res = csv_import.import_csv(conn, f, mapping, rejects_dir=ROOT / "data" / "rejects")
+        except Exception as exc:  # noqa: BLE001 - one bad file must not stop the others
+            conn.rollback()
+            log.error("Inbox file %s not imported: %s", f.name, exc)
+            failed.append(f.name)
+            continue
+        for w in res.warnings:
+            log.warning(w)
+        rejected += len(res.rejected)
+    if failed:
+        raise pipeline.StepFailed(f"{len(failed)} of {len(files)} file(s) failed: {', '.join(failed)}")
+    return f"{len(files)} file(s), {rejected} rejected row(s)" + (" (see data/rejects/)" if rejected else "")
+
+
+def _step_performance(conn) -> None:
     try:
         run_performance(conn)
     except ValueError as exc:
-        log.warning("Performance step skipped: %s", exc)   # never blocks the export
+        raise pipeline.StepFailed(f"not computed: {exc}") from exc
+
+
+def _step_export(conn) -> str:
     export.export_all(conn, ROOT / "data" / "powerbi")
+    return "data/powerbi/ refreshed"
 
 def run_watchlist(conn, args) -> None:
     """watchlist sync | add | remove | list"""
