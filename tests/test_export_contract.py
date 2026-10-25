@@ -25,7 +25,7 @@ CONTRACT = {
     "dim_date": ["date", "year", "month_num", "month", "year_month", "week_of_year",
                  "weekday_num", "weekday", "is_weekday"],
     "data_quality": ["area", "item", "status", "last_date", "age_days", "detail"],
-    "export_info": ["exported_at_utc", "note"],
+    "export_info": ["exported_at_utc", "note", "contract_version"],
     "dim_fee_schedule": ["fee_schedule_id", "institution_id", "fee_type", "applies_to", "rate_bps",
                          "flat_amount", "flat_currency", "effective_from", "effective_to", "source_url",
                          "date_checked", "notes", "is_demo"],
@@ -39,8 +39,28 @@ CONTRACT = {
                      "amount", "boc_rate", "boc_rate_date", "boc_status", "platform_rate",
                      "received_at_benchmark", "received_via_platform", "notional_cad", "cost_cad", "cost_bps",
                      "quality_label", "source_ref", "source_url", "date_checked", "is_demo"],
+    # --- contract 1.6 ---
+    "fact_perf_account_daily": ["account_id", "household_id", "as_of_date", "prev_date", "currency",
+                                "start_value", "end_value", "net_flow", "investment_change", "return_native",
+                                "start_value_cad", "end_value_cad", "net_flow_cad", "investment_change_cad",
+                                "return_cad", "market_change_cad", "fx_change_cad", "currency_effect",
+                                "fx_status", "computed_at_utc", "quality_label", "is_demo"],
+    "fact_perf_household_daily": ["household_id", "as_of_date", "accounts", "accounts_with_return",
+                                  "end_value_cad", "external_flow_cad", "internal_transfer_cad",
+                                  "investment_change_cad", "market_change_cad", "fx_change_cad", "return_cad",
+                                  "fx_status", "computed_at_utc", "quality_label", "is_demo"],
+    "fact_activity": ["activity_id", "account_id", "activity_type", "raw_type", "trade_date", "symbol",
+                      "quantity", "amount", "currency", "fx_rate", "fx_rate_date", "fx_gap_days", "fx_status",
+                      "amount_cad", "counter_amount", "counter_currency", "counter_amount_cad",
+                      "counter_fx_status", "reported_fx_rate", "fx_conversion_cost_cad", "quality_flag",
+                      "source_id"],
+    "fact_holding_snapshot": ["account_id", "as_of_date", "symbol", "asset_class", "quantity", "market_value",
+                              "currency", "fx_rate", "fx_rate_date", "fx_gap_days", "fx_status",
+                              "market_value_cad", "quality_flag", "source_id"],
+    "dim_connection": ["connection_id", "institution_id", "source_id", "display_name", "access_mode", "status",
+                       "created_at_utc", "last_synced_at_utc", "is_demo"],
+    "dim_institution": ["institution_id", "display_name", "country", "website_url", "is_demo"],
 }
-
 @pytest.fixture
 def exported(conn, tmp_path):
     synthetic.load_demo(conn)
