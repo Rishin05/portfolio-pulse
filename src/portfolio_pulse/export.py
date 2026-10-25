@@ -16,6 +16,7 @@ from . import fx_converter, news, symbol_map
 
 log = logging.getLogger(__name__)
 
+EXPORT_CONTRACT_VERSION = "1.6"
 STALE_NEWS_DAYS = 7
 STALE_SNAPSHOT_DAYS = 4   # more than a long weekend
 
@@ -96,9 +97,36 @@ def build_dim_date(start: str, end: str) -> pd.DataFrame:
                          "is_weekday": d.weekday < 5})
 
 
+
+DATE_COLUMNS = {   # every date a visual can slice by; dim_date must cover all of them
+    "fact_perf_account_daily": ["as_of_date"],
+    "fact_perf_household_daily": ["as_of_date"],
+    "fact_daily_performance": ["as_of_date"],
+    "fact_cash_flow": ["flow_date"],
+    "fact_activity": ["trade_date"],
+    "fact_holding_snapshot": ["as_of_date"],
+    "fact_news": ["market_date", "published_local_date"],
+    "fact_fx_cost": ["as_of_date"],
+}
+
+def _date_span(tables: dict[str, pd.DataFrame]) -> tuple[str, str] | None:
+    """Earliest and latest YYYY-MM-DD across DATE_COLUMNS (timestamps are cut to the date)."""
+    values: list[str] = []
+    for name, cols in DATE_COLUMNS.items():
+        df = tables.get(name)
+        if df is None or df.empty:
+            continue
+        for col in cols:
+            if col not in df.columns:
+                continue
+            s = df[col].dropna().astype(str).str[:10]
+            s = s[s.str.match(r"^\d{4}-\d{2}-\d{2}$")]
+            if not s.empty:
+                values += [s.min(), s.max()]
+    return (min(values), max(values)) if values else None
+
 def export_all(conn, out_dir: str | Path) -> dict[str, int]:
     news.refresh_derived(conn)   # idempotent: Toronto dates, story keys, article-symbol links
-    out = Path(out_dir)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     perf = _q(conn, "SELECT p.*, s.is_demo AS source_is_demo FROM v_daily_performance p "
@@ -138,6 +166,24 @@ def export_all(conn, out_dir: str | Path) -> dict[str, int]:
         "bridge_universe_list": _q(conn, "SELECT list_id, symbol || '|' || exchange AS listing_key, weight_pct, "
                                          "holdings_as_of, fund_name, is_demo FROM symbol_universe "
                                          "ORDER BY list_id, symbol, exchange"),
+        # --- contract 1.6: engine v2 in CAD, activity, holdings, provenance dims ---
+        "fact_perf_account_daily": _q(conn, "SELECT p.*, a.is_demo FROM v_perf_account_daily p "
+                                            "JOIN account a USING (account_id) "
+                                            "ORDER BY p.account_id, p.as_of_date").round(10),
+        "fact_perf_household_daily": _q(conn, "SELECT h.*, (SELECT MIN(a.is_demo) FROM perf_account_daily pa "
+                                              "JOIN account a USING (account_id) "
+                                              "WHERE pa.household_id = h.household_id) AS is_demo "
+                                              "FROM v_perf_household_daily h "
+                                              "ORDER BY h.household_id, h.as_of_date").round(10),
+        "fact_activity": _q(conn, "SELECT * FROM v_activity_cad "
+                                  "ORDER BY trade_date, account_id, activity_id").round(10),
+        "fact_holding_snapshot": _q(conn, "SELECT * FROM v_holding_cad "
+                                          "ORDER BY as_of_date, account_id, symbol").round(10),
+        "dim_connection": _q(conn, "SELECT connection_id, institution_id, source_id, display_name, access_mode, "
+                                   "status, created_at_utc, last_synced_at_utc, is_demo FROM connection "
+                                   "ORDER BY connection_id"),   # never provider_ref
+        "dim_institution": _q(conn, "SELECT institution_id, display_name, country, website_url, is_demo "
+                                    "FROM institution ORDER BY institution_id"),
     }
     dsu = tables["dim_symbol_universe"]
     if not dsu.empty:
@@ -146,10 +192,12 @@ def export_all(conn, out_dir: str | Path) -> dict[str, int]:
     tables["fact_fx_cost"] = pd.DataFrame(fx_rows, columns=fx_converter.COST_COLUMNS)
     if fx_skipped:
         log.info("fact_fx_cost: %s combination(s) skipped (no usable rate, fee or quote side).", fx_skipped)
-    if not perf.empty:
-        tables["dim_date"] = build_dim_date(perf["as_of_date"].min(), perf["as_of_date"].max())
+    span = _date_span(tables)
+    if span:
+        tables["dim_date"] = build_dim_date(*span)
     tables["export_info"] = pd.DataFrame([{"exported_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                                           "note": "Educational analytics only. Not financial advice."}])
+                                           "note": "Educational analytics only. Not financial advice.",
+                                           "contract_version": EXPORT_CONTRACT_VERSION}])
     counts = {}
     for name, df in tables.items():
         df.to_csv(out / f"{name}.csv", index=False)

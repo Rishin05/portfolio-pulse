@@ -56,3 +56,9 @@ def test_forbidden_column_fails(good):
 def test_empty_folder_fails(tmp_path):
     assert demo_gate.check_export(tmp_path) == [f"No CSV files in {tmp_path}"]
     assert demo_gate.main([str(tmp_path)]) == 1
+
+
+def test_demo_account_with_demo_connection_passes(good):
+    _write(good, "dim_account", ["account_id", "display_name", "is_demo", "connection_id"],
+           [["DEMO-TFSA", "Demo TFSA", "1", "DEMO-CONN"]])
+    assert demo_gate.check_export(good) == []

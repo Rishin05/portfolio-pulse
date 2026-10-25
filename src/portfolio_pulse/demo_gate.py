@@ -45,16 +45,20 @@ def check_export(folder: Path) -> list[str]:
     tables = {f.stem: _read(f) for f in files}
     problems: list[str] = []
 
-    # Standalone DEMO accounts only: no SnapTrade connection, not even a paper account.
+    # Standalone DEMO accounts only: no SnapTrade connection (ST- IDs), not even a paper account.
     demo_accounts: set[str] = set()
     if "dim_account" not in tables:
         problems.append("dim_account.csv is missing")
     for r in tables.get("dim_account", ([], []))[1]:
         acc = r.get("account_id", "")
-        if _is_true(r.get("is_demo")) and not (r.get("connection_id") or "").strip() and not acc.startswith("ST-"):
+        conn_id = (r.get("connection_id") or "").strip()
+        if _is_true(r.get("is_demo")) and not acc.startswith("ST-") and not conn_id.startswith("ST-"):
             demo_accounts.add(acc)
         else:
             problems.append(f"dim_account: {acc} is not a standalone DEMO account")
+    for r in tables.get("dim_connection", ([], []))[1]:
+        if (r.get("connection_id") or "").startswith("ST-"):
+            problems.append(f"dim_connection: {r['connection_id']} is a SnapTrade connection")
 
     for name, (cols, rows) in tables.items():
         bad_cols = sorted(FORBIDDEN_COLUMNS.intersection(c.lower() for c in cols))
