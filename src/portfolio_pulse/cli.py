@@ -112,7 +112,9 @@ def main(argv: list[str] | None = None) -> int:
     ui.add_argument("--list", required=True, help="list id, e.g. IVV, IWM, XIU, XEQT, MANUAL")
     ui.add_argument("--dry-run", action="store_true", help="parse and compare, write nothing")
     ui.add_argument("--demo", action="store_true", help="label these rows as DEMO")
-    sub.add_parser("export")
+    ex = sub.add_parser("export")
+    ex.add_argument("--out", type=Path, default=None,
+                    help="output folder for the Power BI CSVs (default: data/powerbi/; relative = from project root)")
     fx = sub.add_parser("fetch-fx")
     fx.add_argument("--start", type=_iso_date, default=None,
                     help="YYYY-MM-DD; default: day after the latest stored rate (or ~400 days back)")
@@ -169,7 +171,10 @@ def main(argv: list[str] | None = None) -> int:
             universe.import_list(conn, args.file, args.list, dry_run=args.dry_run, is_demo=args.demo,
                                  rejects_dir=ROOT / "data" / "rejects")
         elif args.cmd == "export":
-            export.export_all(conn, ROOT / "data" / "powerbi")
+            out = args.out or Path("data") / "powerbi"
+            out = out if out.is_absolute() else ROOT / out
+            out.mkdir(parents=True, exist_ok=True)
+            export.export_all(conn, out)
         elif args.cmd == "fetch-fx":
             if not fetch_fx(conn, args.start, args.end, args.dry_run):
                 return 2
