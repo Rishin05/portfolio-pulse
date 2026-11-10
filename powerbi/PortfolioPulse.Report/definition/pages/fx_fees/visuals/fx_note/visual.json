@@ -1,0 +1,45 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "fx_note",
+  "position": {
+    "x": 24,
+    "y": 646,
+    "z": 11000,
+    "height": 50,
+    "width": 1232,
+    "tabOrder": 11000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "How to read this. ",
+                    "textStyle": {
+                      "fontSize": "9pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "The Bank of Canada rate is an indicative daily reference rate, not a rate anyone can trade at. Percent fees are labelled estimated because the platform's own base rate is not published; posted bank quotes are labelled reported. A negative cost means better than the reference rate.",
+                    "textStyle": {
+                      "fontSize": "9pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

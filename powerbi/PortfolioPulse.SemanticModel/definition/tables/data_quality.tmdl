@@ -1,0 +1,66 @@
+table data_quality
+	lineageTag: 9a3d50b9-b41b-5eea-9969-9367d29adb12
+
+	column area
+		dataType: string
+		lineageTag: 81bc5214-77fd-570e-a0f1-24d8e71df87c
+		summarizeBy: none
+		sourceColumn: area
+
+		annotation SummarizationSetBy = User
+
+	column item
+		dataType: string
+		lineageTag: 6d27d671-20c3-5bd3-967f-0726942cacbf
+		summarizeBy: none
+		sourceColumn: item
+
+		annotation SummarizationSetBy = User
+
+	column status
+		dataType: string
+		lineageTag: 341e40af-1f5a-5762-b22a-1914a7ce1874
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = User
+
+	column last_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 79324deb-1ba8-56d9-a574-476c57778bcb
+		summarizeBy: none
+		sourceColumn: last_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column age_days
+		dataType: int64
+		formatString: 0
+		lineageTag: 62c2f9c4-9d1b-597c-b88d-ebc8fff45fe3
+		summarizeBy: none
+		sourceColumn: age_days
+
+		annotation SummarizationSetBy = User
+
+	column detail
+		dataType: string
+		lineageTag: 494ec148-0ea5-52b2-8f31-888d9be37704
+		summarizeBy: none
+		sourceColumn: detail
+
+		annotation SummarizationSetBy = User
+
+	partition data_quality = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("data_quality", {
+				        {"area", type text}, {"item", type text}, {"status", type text}, {"last_date", type date},
+				        {"age_days", Int64.Type}, {"detail", type text}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

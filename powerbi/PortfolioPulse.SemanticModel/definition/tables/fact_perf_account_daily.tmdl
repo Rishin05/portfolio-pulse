@@ -1,0 +1,218 @@
+table fact_perf_account_daily
+	lineageTag: 6b6748fc-c81c-578b-a1ca-6d04386cb2d1
+
+	column account_id
+		dataType: string
+		isHidden
+		lineageTag: 20d974ff-6267-5c54-a032-45ca5c4ddcb7
+		summarizeBy: none
+		sourceColumn: account_id
+
+		annotation SummarizationSetBy = User
+
+	column household_id
+		dataType: string
+		lineageTag: 0fe2bdef-e53c-5c8d-82fa-bdb32451a5ff
+		summarizeBy: none
+		sourceColumn: household_id
+
+		annotation SummarizationSetBy = User
+
+	column as_of_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: ef5dedeb-0038-5dba-a524-c7490cffa4cd
+		summarizeBy: none
+		sourceColumn: as_of_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column prev_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: d9a22763-c7c9-5789-a393-b7ad085abc49
+		summarizeBy: none
+		sourceColumn: prev_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column currency
+		dataType: string
+		lineageTag: ab5ac35f-8d42-5ad2-90b0-2c22f7b8404c
+		summarizeBy: none
+		sourceColumn: currency
+
+		annotation SummarizationSetBy = User
+
+	column start_value
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 86b0768b-c303-5188-a59d-3f8f5004df57
+		summarizeBy: none
+		sourceColumn: start_value
+
+		annotation SummarizationSetBy = User
+
+	column end_value
+		dataType: double
+		formatString: #,0.00
+		lineageTag: b884112e-822e-5ac5-993c-629ac6793396
+		summarizeBy: none
+		sourceColumn: end_value
+
+		annotation SummarizationSetBy = User
+
+	column net_flow
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 74dd4470-11d7-5452-8179-2feae980afc1
+		summarizeBy: none
+		sourceColumn: net_flow
+
+		annotation SummarizationSetBy = User
+
+	column investment_change
+		dataType: double
+		formatString: #,0.00
+		lineageTag: aa530b07-005b-5ce3-bf30-05187b6efd81
+		summarizeBy: none
+		sourceColumn: investment_change
+
+		annotation SummarizationSetBy = User
+
+	column return_native
+		dataType: double
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: 9417c495-c920-55d2-aace-050f8ba9f9bb
+		summarizeBy: none
+		sourceColumn: return_native
+
+		annotation SummarizationSetBy = User
+
+	column start_value_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: e131fb6f-b62b-5e0a-a56d-6277b5b30d0e
+		summarizeBy: none
+		sourceColumn: start_value_cad
+
+		annotation SummarizationSetBy = User
+
+	column end_value_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 1a16c398-6ba8-5b3c-8d85-4fbae82ed05f
+		summarizeBy: none
+		sourceColumn: end_value_cad
+
+		annotation SummarizationSetBy = User
+
+	column net_flow_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: da940d72-416a-5e05-b0a5-be959ce228e4
+		summarizeBy: sum
+		sourceColumn: net_flow_cad
+
+		annotation SummarizationSetBy = User
+
+	column investment_change_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: e5740a79-8b62-5f64-8876-45a62d7ffa42
+		summarizeBy: sum
+		sourceColumn: investment_change_cad
+
+		annotation SummarizationSetBy = User
+
+	column return_cad
+		dataType: double
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: 2160c625-0a6c-5fd4-9e02-2199ff8f972b
+		summarizeBy: none
+		sourceColumn: return_cad
+
+		annotation SummarizationSetBy = User
+
+	column market_change_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: bc9f44f4-b397-5a6f-9e65-b2116670bcbc
+		summarizeBy: sum
+		sourceColumn: market_change_cad
+
+		annotation SummarizationSetBy = User
+
+	column fx_change_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 8d805b7a-2182-5b84-90e4-ae0124896a10
+		summarizeBy: sum
+		sourceColumn: fx_change_cad
+
+		annotation SummarizationSetBy = User
+
+	column currency_effect
+		dataType: double
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: a7748ec0-9c37-5888-b55f-03c7ffb18bea
+		summarizeBy: none
+		sourceColumn: currency_effect
+
+		annotation SummarizationSetBy = User
+
+	column fx_status
+		dataType: string
+		lineageTag: 62c11f7e-1287-5960-aae8-2aa69c319045
+		summarizeBy: none
+		sourceColumn: fx_status
+
+		annotation SummarizationSetBy = User
+
+	column computed_at_utc
+		dataType: string
+		isHidden
+		lineageTag: 464ac005-41eb-58e1-8500-e9b87d2eb2fb
+		summarizeBy: none
+		sourceColumn: computed_at_utc
+
+		annotation SummarizationSetBy = User
+
+	column quality_label
+		dataType: string
+		lineageTag: c49c5a14-2553-5e47-b620-4014db634ce1
+		summarizeBy: none
+		sourceColumn: quality_label
+
+		annotation SummarizationSetBy = User
+
+	column is_demo
+		dataType: int64
+		formatString: 0
+		lineageTag: cf476e8d-64f6-5ae8-b422-e522b2e7e038
+		summarizeBy: none
+		sourceColumn: is_demo
+
+		annotation SummarizationSetBy = User
+
+	partition fact_perf_account_daily = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("fact_perf_account_daily", {
+				        {"account_id", type text}, {"household_id", type text}, {"as_of_date", type date}, {"prev_date", type date},
+				        {"currency", type text}, {"start_value", type number}, {"end_value", type number}, {"net_flow", type number},
+				        {"investment_change", type number}, {"return_native", type number}, {"start_value_cad", type number},
+				        {"end_value_cad", type number}, {"net_flow_cad", type number}, {"investment_change_cad", type number},
+				        {"return_cad", type number}, {"market_change_cad", type number}, {"fx_change_cad", type number},
+				        {"currency_effect", type number}, {"fx_status", type text}, {"computed_at_utc", type text},
+				        {"quality_label", type text}, {"is_demo", Int64.Type}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

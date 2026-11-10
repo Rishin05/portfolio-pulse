@@ -1,0 +1,125 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "how_1",
+  "position": {
+    "x": 24,
+    "y": 116,
+    "z": 3000,
+    "height": 400,
+    "width": 400,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Performance",
+                    "textStyle": {
+                      "fontSize": "12pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Investment gain or loss ",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "= value at end - value at start - money in minus money out. Deposits and withdrawals are never counted as performance.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Daily return ",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "= gain or loss / (value at start + that day's flow). Flows are treated as arriving at the start of the day; weekend flows roll into the next snapshot.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Time-weighted return ",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "= the daily returns compounded. It removes the effect of when you deposited.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "No averaged percentages. ",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "For several accounts, the report divides summed dollars by summed dollars.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Dividends, interest, fees and withholding tax count as part of return.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

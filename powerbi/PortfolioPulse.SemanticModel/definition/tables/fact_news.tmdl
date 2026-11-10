@@ -1,0 +1,144 @@
+table fact_news
+	lineageTag: c79ddbf4-44b8-5ded-b337-d355ee3b0d3f
+
+	column article_id
+		dataType: string
+		lineageTag: bbb8dcb3-94fc-5bb2-ab5e-cb8e80c9b092
+		summarizeBy: none
+		sourceColumn: article_id
+
+		annotation SummarizationSetBy = User
+
+	column symbol
+		dataType: string
+		lineageTag: c878adf4-6fc0-5921-ba56-57af618eb1fb
+		summarizeBy: none
+		sourceColumn: symbol
+
+		annotation SummarizationSetBy = User
+
+	column headline
+		dataType: string
+		lineageTag: 2ad7d4f5-17a8-549c-b1c4-66024952d6be
+		summarizeBy: none
+		sourceColumn: headline
+
+		annotation SummarizationSetBy = User
+
+	column url
+		dataType: string
+		lineageTag: 6c9fef8a-d102-5017-a8cc-02f0fbfeb3c7
+		dataCategory: WebUrl
+		summarizeBy: none
+		sourceColumn: url
+
+		annotation SummarizationSetBy = User
+
+	column publisher
+		dataType: string
+		lineageTag: 276e694b-8515-5e52-812e-0e2bcdf713ec
+		summarizeBy: none
+		sourceColumn: publisher
+
+		annotation SummarizationSetBy = User
+
+	column published_at_utc
+		dataType: string
+		lineageTag: a79e6d03-251c-5f68-89d0-0e4c87dcf98b
+		summarizeBy: none
+		sourceColumn: published_at_utc
+
+		annotation SummarizationSetBy = User
+
+	column published_date_utc
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: f629a790-7041-552f-b004-5fbfec9ab68e
+		summarizeBy: none
+		sourceColumn: published_date_utc
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column fetched_at_utc
+		dataType: string
+		isHidden
+		lineageTag: 2f31facc-d62f-5cc9-8a5e-71f56f231d58
+		summarizeBy: none
+		sourceColumn: fetched_at_utc
+
+		annotation SummarizationSetBy = User
+
+	column source_id
+		dataType: string
+		isHidden
+		lineageTag: 853e2d57-f91f-51a9-a25f-6e51cd4e6303
+		summarizeBy: none
+		sourceColumn: source_id
+
+		annotation SummarizationSetBy = User
+
+	column is_demo
+		dataType: int64
+		formatString: 0
+		lineageTag: 54e8b5a9-fd5f-5bfe-8bca-2be6fd43f07e
+		summarizeBy: none
+		sourceColumn: is_demo
+
+		annotation SummarizationSetBy = User
+
+	column published_local_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: f8dc968d-c4fb-57ba-bbcc-00a7c54fdead
+		summarizeBy: none
+		sourceColumn: published_local_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column market_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: f6e307c1-cefd-5dda-a6c2-4b22eb868b10
+		summarizeBy: none
+		sourceColumn: market_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column story_key
+		dataType: string
+		isHidden
+		lineageTag: 0956aa71-8589-50d7-a07b-c5444f91dcdc
+		summarizeBy: none
+		sourceColumn: story_key
+
+		annotation SummarizationSetBy = User
+
+	column duplicate_of
+		dataType: string
+		lineageTag: 88a8bfb3-636a-554d-9481-1c3da074fd88
+		summarizeBy: none
+		sourceColumn: duplicate_of
+
+		annotation SummarizationSetBy = User
+
+	partition fact_news = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("fact_news", {
+				        {"article_id", type text}, {"symbol", type text}, {"headline", type text}, {"url", type text},
+				        {"publisher", type text}, {"published_at_utc", type text}, {"published_date_utc", type date},
+				        {"fetched_at_utc", type text}, {"source_id", type text}, {"is_demo", Int64.Type},
+				        {"published_local_date", type date}, {"market_date", type date}, {"story_key", type text},
+				        {"duplicate_of", type text}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

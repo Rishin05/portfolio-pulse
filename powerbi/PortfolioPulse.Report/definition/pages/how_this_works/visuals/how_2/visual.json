@@ -1,0 +1,98 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "how_2",
+  "position": {
+    "x": 440,
+    "y": 116,
+    "z": 4000,
+    "height": 400,
+    "width": 400,
+    "tabOrder": 4000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Currency",
+                    "textStyle": {
+                      "fontSize": "12pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Everything is shown in CAD, converted at the Bank of Canada daily reference rate for that date. Amounts in different currencies are never added together.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Market versus currency ",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "splits each day's gain into the part from prices and the part from the exchange rate.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Conversion cost ",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "= what you would get at the reference rate minus what you actually get, in CAD and in basis points (100 bps = 1%).",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "The Bank of Canada rate is a benchmark only, not a rate anyone can trade at.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

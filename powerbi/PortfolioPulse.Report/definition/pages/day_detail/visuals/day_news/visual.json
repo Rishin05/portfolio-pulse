@@ -1,0 +1,184 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "day_news",
+  "position": {
+    "x": 640,
+    "y": 280,
+    "z": 14000,
+    "height": 360,
+    "width": 616,
+    "tabOrder": 14000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_news"
+                    }
+                  },
+                  "Property": "published_local_date"
+                }
+              },
+              "queryRef": "fact_news.published_local_date",
+              "nativeQueryRef": "published_local_date",
+              "displayName": "Published (Toronto)"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_news"
+                    }
+                  },
+                  "Property": "headline"
+                }
+              },
+              "queryRef": "fact_news.headline",
+              "nativeQueryRef": "headline",
+              "displayName": "Headline"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_news"
+                    }
+                  },
+                  "Property": "publisher"
+                }
+              },
+              "queryRef": "fact_news.publisher",
+              "nativeQueryRef": "publisher",
+              "displayName": "Publisher"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_news"
+                    }
+                  },
+                  "Property": "url"
+                }
+              },
+              "queryRef": "fact_news.url",
+              "nativeQueryRef": "url",
+              "displayName": "Link"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Published around this date"
+                }
+              },
+              "queryRef": "_Measures.Published around this date",
+              "nativeQueryRef": "Published around this date",
+              "displayName": "Stories"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fact_news"
+                  }
+                },
+                "Property": "published_local_date"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "objects": {
+      "total": [
+        {
+          "properties": {
+            "totals": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Published around this date'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#1A1A19'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "general": [
+        {
+          "properties": {
+            "altText": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Table: headlines published on this trading day or the weekday before it, with publisher and a link to the original article. Timing only.'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

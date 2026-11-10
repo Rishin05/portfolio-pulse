@@ -1,0 +1,49 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "page_title",
+  "position": {
+    "x": 24,
+    "y": 8,
+    "z": 0,
+    "height": 60,
+    "width": 820,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Calendar of daily returns",
+                    "textStyle": {
+                      "fontSize": "18pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "One cell per trading day. A plus sign and blue mean up; a minus sign and orange mean down. Darker means a move of 1% or more.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

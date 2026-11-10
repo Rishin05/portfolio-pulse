@@ -1,0 +1,36 @@
+{
+  "name": "Portfolio Pulse",
+  "dataColors": [
+    "#2A78D6",
+    "#EB6834",
+    "#1BAF7A",
+    "#EDA100",
+    "#6250D6",
+    "#E87BA4",
+    "#008300",
+    "#E34948"
+  ],
+  "good": "#1C5CAB",
+  "neutral": "#8A8983",
+  "bad": "#B84A1C",
+  "maximum": "#1C5CAB",
+  "center": "#F0EFEC",
+  "minimum": "#B84A1C",
+  "foreground": "#1A1A19",
+  "background": "#FFFFFF",
+  "tableAccent": "#2A78D6",
+  "textClasses": {
+    "callout": {
+      "fontSize": 20,
+      "color": "#1A1A19"
+    },
+    "title": {
+      "fontSize": 11,
+      "color": "#1A1A19"
+    },
+    "label": {
+      "fontSize": 10,
+      "color": "#1A1A19"
+    }
+  }
+}

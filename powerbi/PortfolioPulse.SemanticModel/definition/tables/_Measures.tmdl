@@ -1,0 +1,608 @@
+table _Measures
+	lineageTag: 882d9e6e-cfcc-55a3-9482-41951d3bd86b
+
+	/// Each account's value on its own last day in the selection, added up. Never a sum over days.
+	measure 'Portfolio value at end (CAD)' =
+			SUMX (
+			    VALUES ( dim_account[account_id] ),
+			    VAR LastDay = CALCULATE ( MAX ( fact_perf_account_daily[as_of_date] ) )
+			    RETURN CALCULATE ( SUM ( fact_perf_account_daily[end_value_cad] ), dim_date[date] = LastDay )
+			)
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 1 Value & flows
+		lineageTag: d460ceeb-f9a3-5c30-9495-c270978b4057
+
+	/// Each account's value before its first day in the selection. The very first snapshot has no previous day, so its own value (less that day's flow) is the opening balance.
+	measure 'Portfolio value at start (CAD)' =
+			SUMX (
+			    VALUES ( dim_account[account_id] ),
+			    VAR FirstDay = CALCULATE ( MIN ( fact_perf_account_daily[as_of_date] ) )
+			    VAR StartValue = CALCULATE ( SUM ( fact_perf_account_daily[start_value_cad] ), dim_date[date] = FirstDay )
+			    VAR EndValue = CALCULATE ( SUM ( fact_perf_account_daily[end_value_cad] ), dim_date[date] = FirstDay )
+			    VAR Flow = CALCULATE ( SUM ( fact_perf_account_daily[net_flow_cad] ), dim_date[date] = FirstDay )
+			    RETURN IF ( ISBLANK ( StartValue ), EndValue - Flow, StartValue )
+			)
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 1 Value & flows
+		lineageTag: ee9fcb8b-fe13-590b-938d-59fc5034caff
+
+	/// Money in minus money out (deposits, withdrawals, transfers). Not investment performance.
+	measure 'Net deposits & transfers (CAD)' = SUM ( fact_perf_account_daily[net_flow_cad] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 1 Value & flows
+		lineageTag: 71adb088-131c-5de1-9cc0-f0f9f17a3937
+
+	/// Change in value that did not come from deposits or withdrawals: end - start - net flows.
+	measure 'Investment gain/loss (CAD)' = SUM ( fact_perf_account_daily[investment_change_cad] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 1 Value & flows
+		lineageTag: bb2a2f2d-81dd-5d94-a4d2-38776664309c
+
+	/// The part of the investment gain/loss that came from prices, in CAD.
+	measure 'Market gain/loss (CAD)' = SUM ( fact_perf_account_daily[market_change_cad] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 1 Value & flows
+		lineageTag: 95b353a5-7498-5f23-b50c-aa163df6e831
+
+	/// The part of the investment gain/loss that came from exchange-rate moves.
+	measure 'Currency gain/loss (CAD)' = SUM ( fact_perf_account_daily[fx_change_cad] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 1 Value & flows
+		lineageTag: 438057f0-0275-59a4-8118-f166af416a55
+
+	/// End - start - net flows - gain. Should be 0.00: proves the dollars add up.
+	measure 'Value bridge check (CAD)' =
+			[Portfolio value at end (CAD)] - [Portfolio value at start (CAD)]
+			    - [Net deposits & transfers (CAD)] - [Investment gain/loss (CAD)]
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 1 Value & flows
+		lineageTag: 502a11fe-0d2f-532f-8083-270172ac7f45
+
+	/// Opening balance plus net deposits and transfers up to the date shown. The gap to portfolio value is the cumulative gain or loss.
+	measure 'Money put in to date (CAD)' =
+			VAR LastShown = MAX ( dim_date[date] )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( [Portfolio value at end (CAD)] ),
+			        CALCULATE (
+			            [Portfolio value at start (CAD)] + [Net deposits & transfers (CAD)],
+			            REMOVEFILTERS ( dim_date ),
+			            dim_date[date] <= LastShown
+			        )
+			    )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 1 Value & flows
+		lineageTag: bfd21751-98cd-58f0-844a-c9c824df808b
+
+	/// Dollar-weighted for the accounts selected: summed gain / summed (start + flow). Never an average of percentages. Read it one day at a time.
+	measure 'Daily return (CAD)' =
+			VAR Gain =
+			    CALCULATE (
+			        SUM ( fact_perf_account_daily[investment_change_cad] ),
+			        NOT ISBLANK ( fact_perf_account_daily[return_cad] )
+			    )
+			VAR Base =
+			    CALCULATE (
+			        SUM ( fact_perf_account_daily[start_value_cad] ) + SUM ( fact_perf_account_daily[net_flow_cad] ),
+			        NOT ISBLANK ( fact_perf_account_daily[return_cad] )
+			    )
+			RETURN
+			    DIVIDE ( Gain, Base )
+		formatString: +0.00%;-0.00%;0.00%
+		displayFolder: 2 Returns
+		lineageTag: 49106f55-941f-5112-89c3-05b191c21d45
+
+	/// Daily returns compounded: product of (1 + r) minus 1. Removes the effect of deposit timing.
+	measure 'Time-weighted return (CAD)' =
+			VAR DaysWithReturn =
+			    FILTER ( VALUES ( dim_date[date] ), NOT ISBLANK ( [Daily return (CAD)] ) )
+			RETURN
+			    IF ( NOT ISEMPTY ( DaysWithReturn ), PRODUCTX ( DaysWithReturn, 1 + [Daily return (CAD)] ) - 1 )
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 2 Returns
+		lineageTag: 6d61b864-2705-511a-b02c-61e57949443d
+
+	/// The engine's own household return, compounded. Only shown for one household; ignores account filters.
+	measure 'Time-weighted return (household, engine)' =
+			IF (
+			    DISTINCTCOUNT ( fact_perf_household_daily[household_id] ) = 1,
+			    VAR DaysWithReturn =
+			        FILTER (
+			            VALUES ( dim_date[date] ),
+			            NOT ISBLANK ( CALCULATE ( MAX ( fact_perf_household_daily[return_cad] ) ) )
+			        )
+			    RETURN
+			        IF (
+			            NOT ISEMPTY ( DaysWithReturn ),
+			            PRODUCTX ( DaysWithReturn, 1 + CALCULATE ( MAX ( fact_perf_household_daily[return_cad] ) ) ) - 1
+			        )
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 2 Returns
+		lineageTag: 7896cbb1-540f-57b8-9935-1f5b5116d8e6
+
+	/// The largest one-day return in the selection.
+	measure 'Best day return' = MAXX ( FILTER ( VALUES ( dim_date[date] ), NOT ISBLANK ( [Daily return (CAD)] ) ), [Daily return (CAD)] )
+		formatString: +0.00%;-0.00%;0.00%
+		displayFolder: 2 Returns
+		lineageTag: d75f0db6-dfa4-5c8c-afc4-bb44e49a9b25
+
+	/// The smallest one-day return in the selection.
+	measure 'Worst day return' = MINX ( FILTER ( VALUES ( dim_date[date] ), NOT ISBLANK ( [Daily return (CAD)] ) ), [Daily return (CAD)] )
+		formatString: +0.00%;-0.00%;0.00%
+		displayFolder: 2 Returns
+		lineageTag: 62f53259-becb-5337-a0e1-ee0a52ab225f
+
+	/// The date of the largest one-day return.
+	measure 'Best day' =
+			VAR DaysWithReturn = FILTER ( VALUES ( dim_date[date] ), NOT ISBLANK ( [Daily return (CAD)] ) )
+			RETURN
+			    MAXX ( TOPN ( 1, DaysWithReturn, [Daily return (CAD)], DESC ), dim_date[date] )
+		formatString: ddd, mmm d, yyyy
+		displayFolder: 2 Returns
+		lineageTag: df8641b2-b09e-5159-9f93-48a79ec9745b
+
+	/// The date of the smallest one-day return.
+	measure 'Worst day' =
+			VAR DaysWithReturn = FILTER ( VALUES ( dim_date[date] ), NOT ISBLANK ( [Daily return (CAD)] ) )
+			RETURN
+			    MAXX ( TOPN ( 1, DaysWithReturn, [Daily return (CAD)], ASC ), dim_date[date] )
+		formatString: ddd, mmm d, yyyy
+		displayFolder: 2 Returns
+		lineageTag: 34b61dbb-8819-547f-90ae-a5d008910ce9
+
+	/// Trading days in the selection that have a return.
+	measure 'Days with a return' = COUNTROWS ( FILTER ( VALUES ( dim_date[date] ), NOT ISBLANK ( [Daily return (CAD)] ) ) )
+		formatString: #,0
+		displayFolder: 2 Returns
+		lineageTag: daae88e4-9835-55d2-a09a-499bd22257dd
+
+	/// Days with a return above zero.
+	measure 'Up days' = COUNTROWS ( FILTER ( VALUES ( dim_date[date] ), [Daily return (CAD)] > 0 ) )
+		formatString: #,0
+		displayFolder: 2 Returns
+		lineageTag: c9db47cb-71cd-55dc-a50f-fc436f6cf07a
+
+	/// Days with a return below zero.
+	measure 'Down days' = COUNTROWS ( FILTER ( VALUES ( dim_date[date] ), [Daily return (CAD)] < 0 ) )
+		formatString: #,0
+		displayFolder: 2 Returns
+		lineageTag: 3d39ce27-1230-52ae-9cc9-1342cf328f9a
+
+	/// Cell colour for the calendar: blue = up, orange = down, darker = a move of 1% or more. The +/- sign carries the same meaning for readers who cannot see the colours.
+	measure 'Daily return colour' =
+			VAR r = [Daily return (CAD)]
+			RETURN
+			    SWITCH (
+			        TRUE (),
+			        ISBLANK ( r ), BLANK (),
+			        r >= 0.01, "#1C5CAB",
+			        r > 0, "#B7D3F6",
+			        r = 0, "#F0EFEC",
+			        r > -0.01, "#F8CDB9",
+			        "#B84A1C"
+			    )
+		displayFolder: 2 Returns
+		lineageTag: 7d68d770-ebf3-5fde-882e-ab792988cdba
+
+	/// White text on the dark calendar cells, dark text on the light ones.
+	measure 'Daily return text colour' =
+			VAR r = [Daily return (CAD)]
+			RETURN
+			    SWITCH ( TRUE (), ISBLANK ( r ), BLANK (), r >= 0.01 || r <= -0.01, "#FFFFFF", "#1A1A19" )
+		displayFolder: 2 Returns
+		lineageTag: 1254f2dd-a066-568c-95b5-78c0405b86b5
+
+	/// The latest day with a snapshot on or before the date picked (so a weekend shows Friday). With nothing picked: the latest day.
+	measure 'Day shown' =
+			VAR Picked = MAX ( dim_date[date] )
+			RETURN
+			    CALCULATE (
+			        MAX ( fact_perf_account_daily[as_of_date] ),
+			        REMOVEFILTERS ( dim_date ),
+			        fact_perf_account_daily[as_of_date] <= Picked
+			    )
+		formatString: ddd, mmm d, yyyy
+		displayFolder: 3 Day detail
+		lineageTag: ce4d09a0-77bc-5714-912d-135bcac6e66e
+
+	/// Plain-language heading for the Day detail page.
+	measure 'Day shown label' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    IF (
+			        ISBLANK ( ShownDay ),
+			        "No snapshot on or before this date",
+			        "Showing " & FORMAT ( ShownDay, "dddd, mmmm d, yyyy" )
+			    )
+		displayFolder: 3 Day detail
+		lineageTag: 21df5bfa-ec89-5983-9d5a-9053054a9ae4
+
+	/// Value before the day shown.
+	measure 'Day value at start (CAD)' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    CALCULATE ( [Portfolio value at start (CAD)], REMOVEFILTERS ( dim_date ), dim_date[date] = ShownDay )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 3 Day detail
+		lineageTag: 08105ddd-4dc9-50f3-a7ca-576aa641d358
+
+	/// Money in minus money out on the day shown.
+	measure 'Day deposits & transfers (CAD)' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    CALCULATE ( [Net deposits & transfers (CAD)], REMOVEFILTERS ( dim_date ), dim_date[date] = ShownDay )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 3 Day detail
+		lineageTag: c1fba3dd-5879-5d4a-8c89-6ae3bc5b4b11
+
+	/// Investment gain or loss on the day shown.
+	measure 'Day gain/loss (CAD)' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    CALCULATE ( [Investment gain/loss (CAD)], REMOVEFILTERS ( dim_date ), dim_date[date] = ShownDay )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 3 Day detail
+		lineageTag: cfd0d98e-591f-58a3-8580-c3b643843f25
+
+	/// Price-driven part of the day's gain or loss.
+	measure 'Day market gain/loss (CAD)' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    CALCULATE ( [Market gain/loss (CAD)], REMOVEFILTERS ( dim_date ), dim_date[date] = ShownDay )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 3 Day detail
+		lineageTag: c9d00905-e88f-5dab-aa12-795008a1d9ca
+
+	/// Exchange-rate part of the day's gain or loss.
+	measure 'Day currency gain/loss (CAD)' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    CALCULATE ( [Currency gain/loss (CAD)], REMOVEFILTERS ( dim_date ), dim_date[date] = ShownDay )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 3 Day detail
+		lineageTag: 703ed771-d8f5-538b-8136-9a28649098b2
+
+	/// Value at the end of the day shown.
+	measure 'Day value at end (CAD)' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    CALCULATE ( [Portfolio value at end (CAD)], REMOVEFILTERS ( dim_date ), dim_date[date] = ShownDay )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 3 Day detail
+		lineageTag: aa0709c1-3477-53c8-9215-22733ffd4f20
+
+	/// Return on the day shown.
+	measure 'Day return (CAD)' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    CALCULATE ( [Daily return (CAD)], REMOVEFILTERS ( dim_date ), dim_date[date] = ShownDay )
+		formatString: +0.00%;-0.00%;0.00%
+		displayFolder: 3 Day detail
+		lineageTag: 6b611ad6-d933-5c15-8b15-4bb98943bba7
+
+	/// Account activity on the day shown, in CAD.
+	measure 'Day activity amount (CAD)' =
+			VAR ShownDay = [Day shown]
+			RETURN
+			    CALCULATE ( SUM ( fact_activity[amount_cad] ), REMOVEFILTERS ( dim_date ), dim_date[date] = ShownDay )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 3 Day detail
+		lineageTag: 9baa441e-7f69-5001-943a-a449a6540788
+
+	/// Holdings are not captured every day: this is the latest holdings snapshot on or before the date picked.
+	measure 'Holdings snapshot date' =
+			VAR Picked = MAX ( dim_date[date] )
+			RETURN
+			    CALCULATE (
+			        MAX ( fact_holding_snapshot[as_of_date] ),
+			        REMOVEFILTERS ( dim_date ),
+			        REMOVEFILTERS ( fact_holding_snapshot[symbol], fact_holding_snapshot[asset_class], fact_holding_snapshot[currency] ),
+			        fact_holding_snapshot[as_of_date] <= Picked
+			    )
+		formatString: ddd, mmm d, yyyy
+		displayFolder: 3 Day detail
+		lineageTag: 659dacec-ac76-5b39-9024-636d7e398070
+
+	/// Says which holdings snapshot the table shows.
+	measure 'Holdings snapshot label' =
+			VAR SnapDay = [Holdings snapshot date]
+			RETURN
+			    IF (
+			        ISBLANK ( SnapDay ),
+			        "No holdings snapshot on or before this date",
+			        "Holdings as of " & FORMAT ( SnapDay, "mmm d, yyyy" ) & " (latest snapshot on or before the date picked)"
+			    )
+		displayFolder: 3 Day detail
+		lineageTag: 2441bc68-974b-55f1-b535-809057063829
+
+	/// Market value in CAD at the holdings snapshot date.
+	measure 'Holding value (CAD)' =
+			VAR SnapDay = [Holdings snapshot date]
+			RETURN
+			    CALCULATE (
+			        SUM ( fact_holding_snapshot[market_value_cad] ),
+			        REMOVEFILTERS ( dim_date ),
+			        dim_date[date] = SnapDay
+			    )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 3 Day detail
+		lineageTag: e7425fa8-b90c-589b-9d92-56ce168cfa86
+
+	/// Summed holding value / summed value of all holdings shown.
+	measure 'Holding share of portfolio' =
+			DIVIDE (
+			    [Holding value (CAD)],
+			    CALCULATE ( [Holding value (CAD)], REMOVEFILTERS ( fact_holding_snapshot[symbol], fact_holding_snapshot[asset_class], fact_holding_snapshot[currency] ) )
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 3 Day detail
+		lineageTag: 8625c784-b42c-5b5e-b351-f0276c2bb8ce
+
+	/// Deposits and transfers in.
+	measure 'Deposits (CAD)' =
+			CALCULATE (
+			    SUM ( fact_activity[amount_cad] ),
+			    fact_activity[activity_type] IN { "DEPOSIT", "TRANSFER_IN" }
+			)
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 4 Cash flows
+		lineageTag: 8e14510c-2283-59f8-bcde-fd513322762e
+
+	/// Withdrawals and transfers out (shown as negative).
+	measure 'Withdrawals (CAD)' =
+			CALCULATE (
+			    SUM ( fact_activity[amount_cad] ),
+			    fact_activity[activity_type] IN { "WITHDRAWAL", "TRANSFER_OUT" }
+			)
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 4 Cash flows
+		lineageTag: edecb511-34b1-5146-b3fb-3d4661b438ca
+
+	/// Income received. Counts as part of return, not as a deposit.
+	measure 'Dividends & interest (CAD)' = CALCULATE ( SUM ( fact_activity[amount_cad] ), fact_activity[activity_type] IN { "DIVIDEND", "INTEREST" } )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 4 Cash flows
+		lineageTag: a3cd8d51-255c-50b8-8c83-fecd10d650e9
+
+	/// Fees and withholding tax (negative). Counts as part of return.
+	measure 'Fees & tax (CAD)' = CALCULATE ( SUM ( fact_activity[amount_cad] ), fact_activity[activity_type] IN { "FEE", "TAX" } )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 4 Cash flows
+		lineageTag: 09563b6b-e8ec-5d4b-8a58-dae85a5eb9f1
+
+	/// Net cash effect of the activity shown, in CAD at the Bank of Canada rate.
+	measure 'Activity amount (CAD)' = SUM ( fact_activity[amount_cad] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 4 Cash flows
+		lineageTag: c407df0f-b68b-5dfe-903c-8ba2a9c54109
+
+	/// Number of activity rows.
+	measure Activities = COUNTROWS ( fact_activity )
+		formatString: #,0
+		displayFolder: 4 Cash flows
+		lineageTag: d0e8244e-cfab-543c-80c2-bec587b7693b
+
+	/// Cost versus the Bank of Canada reference rate, in CAD.
+	measure 'FX cost (CAD)' = SUM ( fact_fx_cost[cost_cad] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 5 FX & fees
+		lineageTag: 916fdd5a-4f5d-56c8-a446-944afc6a615e
+
+	/// CAD value of the amounts converted.
+	measure 'FX notional (CAD)' = SUM ( fact_fx_cost[notional_cad] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 5 FX & fees
+		lineageTag: c9b915fb-49ae-578c-a5c0-de41eb2c0db7
+
+	/// Weighted by amount: summed cost / summed notional x 10,000. 100 bps = 1%. Never a sum or average of bps.
+	measure 'FX cost (bps)' = DIVIDE ( [FX cost (CAD)], [FX notional (CAD)] ) * 10000
+		formatString: #,0.0
+		displayFolder: 5 FX & fees
+		lineageTag: e1d2a958-ce17-578b-8814-92851671a3eb
+
+	/// FX cost in bps on the latest day with data.
+	measure 'FX cost (bps, latest day)' =
+			VAR LastDay = CALCULATE ( MAX ( fact_fx_cost[as_of_date] ) )
+			RETURN
+			    CALCULATE ( [FX cost (bps)], dim_date[date] = LastDay )
+		formatString: #,0.0
+		displayFolder: 5 FX & fees
+		lineageTag: bc42f5fb-ed69-5dce-a066-7428d6fff349
+
+	/// What-if: the amount you choose x CAD per unit x the latest weighted bps.
+	measure 'FX cost for chosen amount (CAD)' =
+			VAR LastDay = CALCULATE ( MAX ( fact_fx_cost[as_of_date] ) )
+			VAR Bps = [FX cost (bps, latest day)]
+			VAR CadPerUnit =
+			    CALCULATE (
+			        DIVIDE ( SUM ( fact_fx_cost[notional_cad] ), SUM ( fact_fx_cost[amount] ) ),
+			        dim_date[date] = LastDay
+			    )
+			RETURN
+			    IF ( NOT ISBLANK ( Bps ), [Amount to convert Value] * CadPerUnit * Bps / 10000 )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: 5 FX & fees
+		lineageTag: 341fb5d3-26be-5e10-9676-50b5f5d893f7
+
+	/// Worst label wins: DEMO, STALE, estimated, reported. MISSING when there are no rows.
+	measure 'FX quality' =
+			VAR Labels = VALUES ( fact_fx_cost[quality_label] )
+			RETURN
+			    SWITCH (
+			        TRUE (),
+			        ISEMPTY ( Labels ), "MISSING",
+			        "DEMO" IN Labels, "DEMO",
+			        "STALE" IN Labels, "STALE",
+			        "estimated" IN Labels, "estimated",
+			        "reported" IN Labels, "reported",
+			        CONCATENATEX ( Labels, fact_fx_cost[quality_label], ", " )
+			    )
+		displayFolder: 5 FX & fees
+		lineageTag: 5d859ff5-6b2c-565d-87cc-8600bdd3287d
+
+	/// Headlines stored (links and headlines only, never article text).
+	measure Articles = DISTINCTCOUNT ( fact_news[article_id] )
+		formatString: #,0
+		displayFolder: 6 News
+		lineageTag: 963b6608-ae66-5027-92a9-9c1c8704bb14
+
+	/// Articles not flagged as a duplicate of another source's story.
+	measure 'Unique stories' = CALCULATE ( [Articles], ISBLANK ( fact_news[duplicate_of] ) )
+		formatString: #,0
+		displayFolder: 6 News
+		lineageTag: a0e176a5-eeaa-50d4-96d6-5d88d9c9c268
+
+	/// Unique stories whose market date is the day shown or the weekday before it. A time window only: it never means a headline caused a price move.
+	measure 'Published around this date' =
+			VAR ShownDay = [Day shown]
+			VAR PrevWeekday = SWITCH ( WEEKDAY ( ShownDay, 2 ), 1, ShownDay - 3, 7, ShownDay - 2, ShownDay - 1 )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( ShownDay ),
+			        CALCULATE (
+			            [Unique stories],
+			            REMOVEFILTERS ( dim_date ),
+			            fact_news[market_date] IN { ShownDay, PrevWeekday }
+			        )
+			    )
+		formatString: #,0
+		displayFolder: 6 News
+		lineageTag: f8c6f3e5-23cd-5618-87e2-6b8fe18a678c
+
+	/// Worst label wins: DEMO, MISSING, STALE, estimated, reported.
+	measure 'Quality label' =
+			VAR Labels = VALUES ( fact_perf_account_daily[quality_label] )
+			RETURN
+			    SWITCH (
+			        TRUE (),
+			        ISEMPTY ( Labels ), "MISSING",
+			        "DEMO" IN Labels, "DEMO",
+			        "MISSING" IN Labels, "MISSING",
+			        "STALE" IN Labels, "STALE",
+			        "estimated" IN Labels, "estimated",
+			        "reported" IN Labels, "reported",
+			        CONCATENATEX ( Labels, fact_perf_account_daily[quality_label], ", " )
+			    )
+		displayFolder: 7 Labels & quality
+		lineageTag: c162c50f-53cb-54c2-933c-6010a8b7d122
+
+	/// Shown at the top of every page.
+	measure 'DEMO banner' =
+			VAR AllDemo = CALCULATE ( MIN ( dim_account[is_demo] ), REMOVEFILTERS ( dim_account ) )
+			VAR AnyDemo = CALCULATE ( MAX ( dim_account[is_demo] ), REMOVEFILTERS ( dim_account ) )
+			RETURN
+			    SWITCH (
+			        TRUE (),
+			        AllDemo = 1, "DEMO DATA: synthetic figures for illustration. Educational analytics, not financial advice.",
+			        AnyDemo = 1, "Includes DEMO accounts (synthetic) alongside real data. Educational analytics, not financial advice.",
+			        "Educational analytics, not financial advice."
+			    )
+		displayFolder: 7 Labels & quality
+		lineageTag: f5944dab-03fa-5708-a51e-f248a91284a8
+
+	/// The latest snapshot date in the data.
+	measure 'Data as of' =
+			"Data as of "
+			    & FORMAT ( CALCULATE ( MAX ( fact_perf_account_daily[as_of_date] ), REMOVEFILTERS ( dim_date ) ), "mmm d, yyyy" )
+		displayFolder: 7 Labels & quality
+		lineageTag: 8d54cace-74cc-5958-87b0-086a39e45913
+
+	/// When the CSVs were exported and which export contract they follow.
+	measure 'Export info' = "Exported " & MAX ( export_info[exported_at_utc] ) & " UTC, export contract " & MAX ( export_info[contract_version] )
+		displayFolder: 7 Labels & quality
+		lineageTag: a0d8768b-2909-5f98-b9e4-1107ab864245
+
+	/// Rows in the data quality table that are STALE or MISSING.
+	measure 'Data quality issues' = COUNTROWS ( FILTER ( data_quality, data_quality[status] IN { "STALE", "MISSING" } ) ) + 0
+		formatString: #,0
+		displayFolder: 7 Labels & quality
+		lineageTag: 029650a4-3d27-52e5-bd44-69928a794c3a
+
+	/// Control total computed straight from the database by scripts/reconcile_powerbi.py.
+	measure 'SQL value' = SUM ( check_totals[sql_value] )
+		formatString: #,0.00####
+		displayFolder: 8 Reconciliation
+		lineageTag: 768ff438-cf51-5e6a-9410-219e4d779752
+
+	/// The same figure computed by this report's measures, with no filters.
+	measure 'Power BI value' =
+			SWITCH (
+			    SELECTEDVALUE ( check_totals[check_id] ),
+			    "perf_rows", COUNTROWS ( fact_perf_account_daily ) + 0,
+			    "end_value_cad", [Portfolio value at end (CAD)] + 0,
+			    "net_flow_cad", [Net deposits & transfers (CAD)] + 0,
+			    "investment_change_cad", [Investment gain/loss (CAD)] + 0,
+			    "market_change_cad", [Market gain/loss (CAD)] + 0,
+			    "fx_change_cad", [Currency gain/loss (CAD)] + 0,
+			    "twr_cad", [Time-weighted return (CAD)] + 0,
+			    "activity_rows", [Activities] + 0,
+			    "activity_amount_cad", [Activity amount (CAD)] + 0,
+			    "deposits_cad", [Deposits (CAD)] + 0,
+			    "holding_rows", COUNTROWS ( fact_holding_snapshot ) + 0,
+			    "holding_value_latest_cad", [Holding value (CAD)] + 0,
+			    "news_articles", [Articles] + 0,
+			    "news_unique", [Unique stories] + 0
+			)
+		formatString: #,0.00####
+		displayFolder: 8 Reconciliation
+		lineageTag: fa278087-3981-5e00-9c45-bfea5c06ce5e
+
+	/// Power BI value minus SQL value.
+	measure Difference = IF ( HASONEVALUE ( check_totals[check_id] ), [Power BI value] - [SQL value] )
+		formatString: #,0.00####
+		displayFolder: 8 Reconciliation
+		lineageTag: a810270e-6c21-5b3f-a175-b79addacfaa2
+
+	/// PASS when the difference is within the check's tolerance.
+	measure 'Check result' =
+			IF (
+			    HASONEVALUE ( check_totals[check_id] ),
+			    IF (
+			        ISBLANK ( [Power BI value] ),
+			        "NOT MAPPED",
+			        IF ( ABS ( [Power BI value] - [SQL value] ) <= MAX ( check_totals[tolerance] ), "PASS", "FAIL" )
+			    )
+			)
+		displayFolder: 8 Reconciliation
+		lineageTag: d3de9192-7a26-5e33-bb9a-b0ae39b50650
+
+	/// Number of reconciliation checks that are not PASS.
+	measure 'Checks failed' = COUNTROWS ( FILTER ( VALUES ( check_totals[check_id] ), [Check result] <> "PASS" ) ) + 0
+		formatString: #,0
+		displayFolder: 8 Reconciliation
+		lineageTag: 583dc98d-a36a-50d1-bbfc-c35f0523db69
+
+	/// One-line summary for the Reconciliation page.
+	measure 'Reconciliation status' =
+			VAR Total = COUNTROWS ( check_totals )
+			VAR Failed = [Checks failed]
+			RETURN
+			    SWITCH (
+			        TRUE (),
+			        ISBLANK ( Total ), "No check_totals.csv in the data folder yet. Run scripts/reconcile_powerbi.py, then Refresh.",
+			        Failed = 0, "All " & Total & " checks PASS: Power BI matches SQL.",
+			        Failed & " of " & Total & " checks do not match. See the table."
+			    )
+		displayFolder: 8 Reconciliation
+		lineageTag: 9417913b-e915-5edf-9764-abdc3525073b
+
+	column Column1
+		dataType: string
+		isHidden
+		lineageTag: d050c5e7-7637-5179-841a-2705d7e06aee
+		summarizeBy: none
+		sourceColumn: Column1
+
+		annotation SummarizationSetBy = User
+
+	partition _Measures = m
+		mode: import
+		source =
+				let
+				    // Empty home table for measures
+				    Source = #table(type table [Column1 = text], {})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

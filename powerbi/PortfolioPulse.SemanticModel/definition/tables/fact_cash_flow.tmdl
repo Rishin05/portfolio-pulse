@@ -1,0 +1,95 @@
+table fact_cash_flow
+	lineageTag: 423baff1-3759-5e58-9430-4f097ab1e6b6
+
+	column cash_flow_id
+		dataType: string
+		lineageTag: 6484b429-1219-56ba-85f6-e56666ae03dd
+		summarizeBy: none
+		sourceColumn: cash_flow_id
+
+		annotation SummarizationSetBy = User
+
+	column account_id
+		dataType: string
+		isHidden
+		lineageTag: 0bbab427-01ee-5d6d-bad8-4b32751e79d4
+		summarizeBy: none
+		sourceColumn: account_id
+
+		annotation SummarizationSetBy = User
+
+	column flow_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: 57b5c17d-5d28-5f1a-af6f-0c530c4f40f2
+		summarizeBy: none
+		sourceColumn: flow_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column flow_type
+		dataType: string
+		lineageTag: 98f142d3-6f21-5d55-af73-a2281e07fffa
+		summarizeBy: none
+		sourceColumn: flow_type
+
+		annotation SummarizationSetBy = User
+
+	column amount
+		dataType: double
+		formatString: #,0.00
+		lineageTag: e965c78e-ac0d-5ef3-a4f3-23295f660a82
+		summarizeBy: none
+		sourceColumn: amount
+
+		annotation SummarizationSetBy = User
+
+	column currency
+		dataType: string
+		lineageTag: f2701fc2-76e1-554e-9453-bc698b3bc602
+		summarizeBy: none
+		sourceColumn: currency
+
+		annotation SummarizationSetBy = User
+
+	column is_external
+		dataType: int64
+		formatString: 0
+		lineageTag: f055af6c-70c7-59cd-918c-d9c9bf1cb244
+		summarizeBy: none
+		sourceColumn: is_external
+
+		annotation SummarizationSetBy = User
+
+	column description
+		dataType: string
+		lineageTag: 7b04dadf-b4c0-527d-bd41-c6e014d9bc5f
+		summarizeBy: none
+		sourceColumn: description
+
+		annotation SummarizationSetBy = User
+
+	column source_id
+		dataType: string
+		isHidden
+		lineageTag: f69885c6-c772-5121-b085-8538ea122c8e
+		summarizeBy: none
+		sourceColumn: source_id
+
+		annotation SummarizationSetBy = User
+
+	partition fact_cash_flow = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("fact_cash_flow", {
+				        {"cash_flow_id", type text}, {"account_id", type text}, {"flow_date", type date}, {"flow_type", type text},
+				        {"amount", type number}, {"currency", type text}, {"is_external", Int64.Type}, {"description", type text},
+				        {"source_id", type text}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

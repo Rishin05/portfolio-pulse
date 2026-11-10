@@ -1,0 +1,134 @@
+table dim_fee_schedule
+	lineageTag: 3a85678c-251c-50e3-8f7d-c827e200f28a
+
+	column fee_schedule_id
+		dataType: string
+		lineageTag: b26e96ec-7d7a-505f-b5fe-761402a472b3
+		summarizeBy: none
+		sourceColumn: fee_schedule_id
+
+		annotation SummarizationSetBy = User
+
+	column institution_id
+		dataType: string
+		isHidden
+		lineageTag: 5019a07e-b32f-5ad3-a3a6-c5738e6bf461
+		summarizeBy: none
+		sourceColumn: institution_id
+
+		annotation SummarizationSetBy = User
+
+	column fee_type
+		dataType: string
+		lineageTag: 78ea9658-cfc7-57a6-a06e-aaceafa9e9ef
+		summarizeBy: none
+		sourceColumn: fee_type
+
+		annotation SummarizationSetBy = User
+
+	column applies_to
+		dataType: string
+		lineageTag: 652b3ca2-8972-5f4c-927a-59bd77229971
+		summarizeBy: none
+		sourceColumn: applies_to
+
+		annotation SummarizationSetBy = User
+
+	column rate_bps
+		dataType: double
+		formatString: #,0.0
+		lineageTag: 8c4cbaec-9681-52f9-a215-27d1544c275e
+		summarizeBy: none
+		sourceColumn: rate_bps
+
+		annotation SummarizationSetBy = User
+
+	column flat_amount
+		dataType: double
+		formatString: #,0.00
+		lineageTag: b7a47e30-e032-5c97-a34c-799b88574bac
+		summarizeBy: none
+		sourceColumn: flat_amount
+
+		annotation SummarizationSetBy = User
+
+	column flat_currency
+		dataType: string
+		lineageTag: 8f85b371-ac5a-527c-bbb0-5d75c23c209e
+		summarizeBy: none
+		sourceColumn: flat_currency
+
+		annotation SummarizationSetBy = User
+
+	column effective_from
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: f5f48226-a8bf-5797-b691-c9d73fd1ae3d
+		summarizeBy: none
+		sourceColumn: effective_from
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column effective_to
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 1ae170c7-f1db-5724-9c84-186b233eaf54
+		summarizeBy: none
+		sourceColumn: effective_to
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column source_url
+		dataType: string
+		lineageTag: 852927af-a078-5a74-a8e0-a82114642bd7
+		dataCategory: WebUrl
+		summarizeBy: none
+		sourceColumn: source_url
+
+		annotation SummarizationSetBy = User
+
+	column date_checked
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 49e0babf-740b-53d7-a0eb-be6c20d8db79
+		summarizeBy: none
+		sourceColumn: date_checked
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column notes
+		dataType: string
+		lineageTag: a1fc8523-bbe8-58ae-8c75-ed301a7eece5
+		summarizeBy: none
+		sourceColumn: notes
+
+		annotation SummarizationSetBy = User
+
+	column is_demo
+		dataType: int64
+		formatString: 0
+		lineageTag: c4d4bca7-59b4-5aa5-b324-2d108dbe1b2d
+		summarizeBy: none
+		sourceColumn: is_demo
+
+		annotation SummarizationSetBy = User
+
+	partition dim_fee_schedule = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("dim_fee_schedule", {
+				        {"fee_schedule_id", type text}, {"institution_id", type text}, {"fee_type", type text},
+				        {"applies_to", type text}, {"rate_bps", type number}, {"flat_amount", type number},
+				        {"flat_currency", type text}, {"effective_from", type date}, {"effective_to", type date},
+				        {"source_url", type text}, {"date_checked", type date}, {"notes", type text}, {"is_demo", Int64.Type}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

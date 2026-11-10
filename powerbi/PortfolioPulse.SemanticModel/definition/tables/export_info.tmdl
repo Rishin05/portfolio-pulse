@@ -1,0 +1,37 @@
+table export_info
+	lineageTag: 4dfb5b85-2d8c-5fac-8cec-52d1e193a5a5
+
+	column exported_at_utc
+		dataType: string
+		lineageTag: 53178cf8-e419-566a-990a-d9182fb45cd9
+		summarizeBy: none
+		sourceColumn: exported_at_utc
+
+		annotation SummarizationSetBy = User
+
+	column note
+		dataType: string
+		lineageTag: f594bd28-49a2-5d93-9528-07c41eef6be1
+		summarizeBy: none
+		sourceColumn: note
+
+		annotation SummarizationSetBy = User
+
+	column contract_version
+		dataType: string
+		lineageTag: 24228571-a852-5d62-a74e-316d13179f06
+		summarizeBy: none
+		sourceColumn: contract_version
+
+		annotation SummarizationSetBy = User
+
+	partition export_info = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("export_info", {
+				        {"exported_at_utc", type text}, {"note", type text}, {"contract_version", type text}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

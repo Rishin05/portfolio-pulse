@@ -1,0 +1,123 @@
+table dim_fx_posted_rate
+	lineageTag: a8699799-2a63-5f43-a8f0-0caed4ce7e38
+
+	column fx_posted_rate_id
+		dataType: string
+		lineageTag: 8d2f1ba8-62fa-5479-8cc4-3f85adb410d8
+		summarizeBy: none
+		sourceColumn: fx_posted_rate_id
+
+		annotation SummarizationSetBy = User
+
+	column institution_id
+		dataType: string
+		isHidden
+		lineageTag: 27e0d7dd-bcb3-5c9b-93e5-6f93d0a78598
+		summarizeBy: none
+		sourceColumn: institution_id
+
+		annotation SummarizationSetBy = User
+
+	column base_currency
+		dataType: string
+		lineageTag: 02e190d0-674b-50d2-a2c6-aa177a7845a8
+		summarizeBy: none
+		sourceColumn: base_currency
+
+		annotation SummarizationSetBy = User
+
+	column quote_currency
+		dataType: string
+		lineageTag: aa0e0e77-dda3-52ca-a71d-9bad17bd51fc
+		summarizeBy: none
+		sourceColumn: quote_currency
+
+		annotation SummarizationSetBy = User
+
+	column rate_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: e313ab57-f3c0-5019-9f40-dfdf15cff1a1
+		summarizeBy: none
+		sourceColumn: rate_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column channel
+		dataType: string
+		lineageTag: 4272f7e0-44cf-5304-9b5b-12e520ec0d23
+		summarizeBy: none
+		sourceColumn: channel
+
+		annotation SummarizationSetBy = User
+
+	column customer_buy_rate
+		dataType: double
+		formatString: 0.0000
+		lineageTag: 7a456183-4592-5827-a625-cac8a1e3fd88
+		summarizeBy: none
+		sourceColumn: customer_buy_rate
+
+		annotation SummarizationSetBy = User
+
+	column customer_sell_rate
+		dataType: double
+		formatString: 0.0000
+		lineageTag: e1af9680-0f7d-59f0-a6c6-4c9e2688bcbe
+		summarizeBy: none
+		sourceColumn: customer_sell_rate
+
+		annotation SummarizationSetBy = User
+
+	column source_url
+		dataType: string
+		lineageTag: 8cfb1066-0019-554e-be8d-ffc4257d252d
+		dataCategory: WebUrl
+		summarizeBy: none
+		sourceColumn: source_url
+
+		annotation SummarizationSetBy = User
+
+	column date_checked
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 77050ce8-29ee-55ca-84f1-1290117bd7cb
+		summarizeBy: none
+		sourceColumn: date_checked
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column notes
+		dataType: string
+		lineageTag: 14ff3eea-5198-5bdc-ac91-710a2e85ea7b
+		summarizeBy: none
+		sourceColumn: notes
+
+		annotation SummarizationSetBy = User
+
+	column is_demo
+		dataType: int64
+		formatString: 0
+		lineageTag: 6bd26dbd-91d1-5bb1-8e96-b36ff3f03f78
+		summarizeBy: none
+		sourceColumn: is_demo
+
+		annotation SummarizationSetBy = User
+
+	partition dim_fx_posted_rate = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("dim_fx_posted_rate", {
+				        {"fx_posted_rate_id", type text}, {"institution_id", type text}, {"base_currency", type text},
+				        {"quote_currency", type text}, {"rate_date", type date}, {"channel", type text},
+				        {"customer_buy_rate", type number}, {"customer_sell_rate", type number}, {"source_url", type text},
+				        {"date_checked", type date}, {"notes", type text}, {"is_demo", Int64.Type}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

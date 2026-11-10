@@ -1,0 +1,110 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "how_3",
+  "position": {
+    "x": 856,
+    "y": 116,
+    "z": 5000,
+    "height": 400,
+    "width": 400,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "News, data and privacy",
+                    "textStyle": {
+                      "fontSize": "12pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Published around this date ",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "means published on that trading day or the weekday before. It never means a headline caused a price move.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Only headlines, publishers, timestamps and links are stored, never article text.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Read-only. ",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "The project only retrieves data. It never places trades and never stores brokerage usernames or passwords.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Public copies of this report contain synthetic DEMO data only, checked by an automated gate before sharing.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Educational analytics only. Not financial advice.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

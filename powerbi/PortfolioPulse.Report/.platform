@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "PortfolioPulse"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "5b8f0c1e-7a44-4f0e-9a53-2f6f3c1d9e02"
+  }
+}

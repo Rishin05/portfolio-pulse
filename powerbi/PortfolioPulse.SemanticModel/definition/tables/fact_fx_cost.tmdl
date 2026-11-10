@@ -1,0 +1,207 @@
+table fact_fx_cost
+	lineageTag: 08982656-2fbf-50fd-9958-5e1b100b7e6b
+
+	column as_of_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: be0c0ca5-88a4-5655-b0d1-1dedc7307587
+		summarizeBy: none
+		sourceColumn: as_of_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column institution_id
+		dataType: string
+		isHidden
+		lineageTag: 2a01cac6-a263-50f7-b57b-c0a9e22f1af3
+		summarizeBy: none
+		sourceColumn: institution_id
+
+		annotation SummarizationSetBy = User
+
+	column model
+		dataType: string
+		lineageTag: ac412fea-56d2-5d7c-8c9d-e3668b1b4300
+		summarizeBy: none
+		sourceColumn: model
+
+		annotation SummarizationSetBy = User
+
+	column channel
+		dataType: string
+		lineageTag: 8597702c-974c-502a-9be9-ea7e0b9ec784
+		summarizeBy: none
+		sourceColumn: channel
+
+		annotation SummarizationSetBy = User
+
+	column from_currency
+		dataType: string
+		lineageTag: 3df30b7b-e715-534d-9f17-2a2f8dac479f
+		summarizeBy: none
+		sourceColumn: from_currency
+
+		annotation SummarizationSetBy = User
+
+	column to_currency
+		dataType: string
+		lineageTag: c484f4d6-5ce5-54de-b34d-da23dd6b9982
+		summarizeBy: none
+		sourceColumn: to_currency
+
+		annotation SummarizationSetBy = User
+
+	column amount
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 0f75a1cb-14b0-53ac-83c0-28bb6db0cf74
+		summarizeBy: none
+		sourceColumn: amount
+
+		annotation SummarizationSetBy = User
+
+	column boc_rate
+		dataType: double
+		formatString: 0.0000
+		lineageTag: 550a8c1e-5a18-5931-a142-b766e58c3665
+		summarizeBy: none
+		sourceColumn: boc_rate
+
+		annotation SummarizationSetBy = User
+
+	column boc_rate_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 8d3564f7-be75-5bad-92bd-d16c4047a6f1
+		summarizeBy: none
+		sourceColumn: boc_rate_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column boc_status
+		dataType: string
+		lineageTag: 19a15c45-105e-59c8-a3d0-dfa29f206492
+		summarizeBy: none
+		sourceColumn: boc_status
+
+		annotation SummarizationSetBy = User
+
+	column platform_rate
+		dataType: double
+		formatString: 0.0000
+		lineageTag: 5d3c6264-75e7-5253-8db1-0100dfa2670a
+		summarizeBy: none
+		sourceColumn: platform_rate
+
+		annotation SummarizationSetBy = User
+
+	column received_at_benchmark
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 9cd6d729-6a60-5422-b836-83b600be45e4
+		summarizeBy: none
+		sourceColumn: received_at_benchmark
+
+		annotation SummarizationSetBy = User
+
+	column received_via_platform
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 40accb79-9beb-547d-94c1-0724f4b627c9
+		summarizeBy: none
+		sourceColumn: received_via_platform
+
+		annotation SummarizationSetBy = User
+
+	column notional_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 2e797389-7d25-5b6e-be04-94e2f8034192
+		summarizeBy: sum
+		sourceColumn: notional_cad
+
+		annotation SummarizationSetBy = User
+
+	column cost_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 51bf4f1b-5782-5e38-b125-c32eb8eae486
+		summarizeBy: sum
+		sourceColumn: cost_cad
+
+		annotation SummarizationSetBy = User
+
+	column cost_bps
+		dataType: double
+		formatString: #,0.0
+		lineageTag: 05bf2d0a-a16c-5f15-ada8-c10339b6d997
+		summarizeBy: none
+		sourceColumn: cost_bps
+
+		annotation SummarizationSetBy = User
+
+	column quality_label
+		dataType: string
+		lineageTag: 553116a2-b25f-59db-b99e-65b9608e12e4
+		summarizeBy: none
+		sourceColumn: quality_label
+
+		annotation SummarizationSetBy = User
+
+	column source_ref
+		dataType: string
+		lineageTag: 4a6eed2b-872a-5ebd-8f15-387d8a617e8a
+		summarizeBy: none
+		sourceColumn: source_ref
+
+		annotation SummarizationSetBy = User
+
+	column source_url
+		dataType: string
+		lineageTag: 80480b52-0313-5779-b4dd-312ca189b170
+		dataCategory: WebUrl
+		summarizeBy: none
+		sourceColumn: source_url
+
+		annotation SummarizationSetBy = User
+
+	column date_checked
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 78e34d30-99b2-5f0f-98a6-a06e8245baf9
+		summarizeBy: none
+		sourceColumn: date_checked
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column is_demo
+		dataType: int64
+		formatString: 0
+		lineageTag: b1985935-3ce9-5dcc-955c-0577324760be
+		summarizeBy: none
+		sourceColumn: is_demo
+
+		annotation SummarizationSetBy = User
+
+	partition fact_fx_cost = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("fact_fx_cost", {
+				        {"as_of_date", type date}, {"institution_id", type text}, {"model", type text}, {"channel", type text},
+				        {"from_currency", type text}, {"to_currency", type text}, {"amount", type number}, {"boc_rate", type number},
+				        {"boc_rate_date", type date}, {"boc_status", type text}, {"platform_rate", type number},
+				        {"received_at_benchmark", type number}, {"received_via_platform", type number}, {"notional_cad", type number},
+				        {"cost_cad", type number}, {"cost_bps", type number}, {"quality_label", type text}, {"source_ref", type text},
+				        {"source_url", type text}, {"date_checked", type date}, {"is_demo", Int64.Type}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

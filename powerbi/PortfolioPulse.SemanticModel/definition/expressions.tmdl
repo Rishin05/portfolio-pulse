@@ -1,0 +1,22 @@
+/// Folder with the Power BI CSVs. Demo: data\powerbi_demo\  Personal: data\powerbi\  (keep the trailing backslash)
+expression DataFolder = "C:\Users\rishi\Websites\portfolio-pulse\data\powerbi_demo\" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 17e010ad-fdc0-59e6-9510-57bbc841d8f4
+
+	annotation PBI_ResultType = Text
+
+expression fnLoadCsv =
+		// Loads one export-contract CSV: UTF-8, quote-aware, header promoted, "" -> null, explicit types.
+		(fileName as text, columnTypes as list) as table =>
+		let
+		    Source   = Csv.Document(
+		                   File.Contents(DataFolder & fileName & ".csv"),
+		                   [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+		    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+		    Nulls    = Table.TransformColumns(Promoted,
+		                   List.Transform(Table.ColumnNames(Promoted), (c) => {c, each if _ = "" then null else _})),
+		    Typed    = Table.TransformColumnTypes(Nulls, columnTypes, "en-CA")
+		in
+		    Typed
+	lineageTag: f5cdfdaa-68b6-5807-a7cc-9c6ce191e464
+
+	annotation PBI_ResultType = Function

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "day_news_note",
+  "position": {
+    "x": 640,
+    "y": 646,
+    "z": 15000,
+    "height": 50,
+    "width": 616,
+    "tabOrder": 15000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Timing only. ",
+                    "textStyle": {
+                      "fontSize": "9pt",
+                      "color": "#1A1A19",
+                      "fontWeight": "bold"
+                    }
+                  },
+                  {
+                    "value": "These headlines were published on this trading day or the weekday before. That does not mean a headline caused a price move.",
+                    "textStyle": {
+                      "fontSize": "9pt",
+                      "color": "#55544F"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

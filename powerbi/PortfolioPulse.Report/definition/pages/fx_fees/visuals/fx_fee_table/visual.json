@@ -1,0 +1,227 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "fx_fee_table",
+  "position": {
+    "x": 24,
+    "y": 450,
+    "z": 10000,
+    "height": 190,
+    "width": 1232,
+    "tabOrder": 10000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_institution"
+                    }
+                  },
+                  "Property": "display_name"
+                }
+              },
+              "queryRef": "dim_institution.display_name",
+              "nativeQueryRef": "display_name",
+              "displayName": "Institution"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fee_schedule"
+                    }
+                  },
+                  "Property": "fee_type"
+                }
+              },
+              "queryRef": "dim_fee_schedule.fee_type",
+              "nativeQueryRef": "fee_type",
+              "displayName": "Fee type"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fee_schedule"
+                    }
+                  },
+                  "Property": "applies_to"
+                }
+              },
+              "queryRef": "dim_fee_schedule.applies_to",
+              "nativeQueryRef": "applies_to",
+              "displayName": "Applies to"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fee_schedule"
+                    }
+                  },
+                  "Property": "rate_bps"
+                }
+              },
+              "queryRef": "dim_fee_schedule.rate_bps",
+              "nativeQueryRef": "rate_bps",
+              "displayName": "Rate (bps)"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fee_schedule"
+                    }
+                  },
+                  "Property": "flat_amount"
+                }
+              },
+              "queryRef": "dim_fee_schedule.flat_amount",
+              "nativeQueryRef": "flat_amount",
+              "displayName": "Flat fee"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fee_schedule"
+                    }
+                  },
+                  "Property": "flat_currency"
+                }
+              },
+              "queryRef": "dim_fee_schedule.flat_currency",
+              "nativeQueryRef": "flat_currency",
+              "displayName": "Flat fee currency"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fee_schedule"
+                    }
+                  },
+                  "Property": "date_checked"
+                }
+              },
+              "queryRef": "dim_fee_schedule.date_checked",
+              "nativeQueryRef": "date_checked",
+              "displayName": "Date checked"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fee_schedule"
+                    }
+                  },
+                  "Property": "source_url"
+                }
+              },
+              "queryRef": "dim_fee_schedule.source_url",
+              "nativeQueryRef": "source_url",
+              "displayName": "Source"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_fee_schedule"
+                    }
+                  },
+                  "Property": "notes"
+                }
+              },
+              "queryRef": "dim_fee_schedule.notes",
+              "nativeQueryRef": "notes",
+              "displayName": "Notes"
+            }
+          ]
+        }
+      }
+    },
+    "objects": {
+      "total": [
+        {
+          "properties": {
+            "totals": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Fee schedule used, with source and the date it was checked'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#1A1A19'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "general": [
+        {
+          "properties": {
+            "altText": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Table: the published fees behind the cost figures, each with its source link and the date it was checked.'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

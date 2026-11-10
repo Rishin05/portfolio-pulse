@@ -1,0 +1,142 @@
+table fact_holding_snapshot
+	lineageTag: 9e60a4f1-bbc7-560c-988c-a05cc06c601c
+
+	column account_id
+		dataType: string
+		isHidden
+		lineageTag: 08403bab-2e07-5042-8369-4af096b4329a
+		summarizeBy: none
+		sourceColumn: account_id
+
+		annotation SummarizationSetBy = User
+
+	column as_of_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: 72f448f8-1ea4-5f42-b83d-ed978fed9451
+		summarizeBy: none
+		sourceColumn: as_of_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column symbol
+		dataType: string
+		lineageTag: 363e5ab3-44e2-5758-846e-debb0797f98e
+		summarizeBy: none
+		sourceColumn: symbol
+
+		annotation SummarizationSetBy = User
+
+	column asset_class
+		dataType: string
+		lineageTag: 85cdf7c2-81bb-5ee8-8d17-c5f1cecd4e78
+		summarizeBy: none
+		sourceColumn: asset_class
+
+		annotation SummarizationSetBy = User
+
+	column quantity
+		dataType: double
+		formatString: #,0.####
+		lineageTag: ccbbdcf7-0996-5add-aad6-8069811f7462
+		summarizeBy: none
+		sourceColumn: quantity
+
+		annotation SummarizationSetBy = User
+
+	column market_value
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 73f4c979-bc01-5637-bb7a-21c13b52c47d
+		summarizeBy: none
+		sourceColumn: market_value
+
+		annotation SummarizationSetBy = User
+
+	column currency
+		dataType: string
+		lineageTag: ce12e2bb-f6c6-500f-89d0-7d6d37edf087
+		summarizeBy: none
+		sourceColumn: currency
+
+		annotation SummarizationSetBy = User
+
+	column fx_rate
+		dataType: double
+		formatString: 0.0000
+		lineageTag: 5ac6aa1a-6add-53a4-a7b8-36ac241efc6d
+		summarizeBy: none
+		sourceColumn: fx_rate
+
+		annotation SummarizationSetBy = User
+
+	column fx_rate_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 61bb0b6f-c2c1-5437-9ae0-8d073bfc6df5
+		summarizeBy: none
+		sourceColumn: fx_rate_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column fx_gap_days
+		dataType: int64
+		formatString: 0
+		lineageTag: d197eb03-fe66-5b75-9391-eca363ca8c3a
+		summarizeBy: none
+		sourceColumn: fx_gap_days
+
+		annotation SummarizationSetBy = User
+
+	column fx_status
+		dataType: string
+		lineageTag: 37b841c4-69c4-5453-bf2d-774e96647039
+		summarizeBy: none
+		sourceColumn: fx_status
+
+		annotation SummarizationSetBy = User
+
+	column market_value_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: fdb098fa-ad89-5f91-b615-ba5e04600dc5
+		summarizeBy: none
+		sourceColumn: market_value_cad
+
+		annotation SummarizationSetBy = User
+
+	column quality_flag
+		dataType: string
+		lineageTag: 09eb3ba1-1ac0-5313-8770-52f111cf4667
+		summarizeBy: none
+		sourceColumn: quality_flag
+
+		annotation SummarizationSetBy = User
+
+	column source_id
+		dataType: string
+		isHidden
+		lineageTag: 8f05ed8f-f69e-5c1a-897e-47bca8cc7517
+		summarizeBy: none
+		sourceColumn: source_id
+
+		annotation SummarizationSetBy = User
+
+	partition fact_holding_snapshot = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("fact_holding_snapshot", {
+				        {"account_id", type text}, {"as_of_date", type date}, {"symbol", type text}, {"asset_class", type text},
+				        {"quantity", type number}, {"market_value", type number}, {"currency", type text}, {"fx_rate", type number},
+				        {"fx_rate_date", type date}, {"fx_gap_days", Int64.Type}, {"fx_status", type text},
+				        {"market_value_cad", type number}, {"quality_flag", type text}, {"source_id", type text}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

@@ -1,0 +1,88 @@
+table dim_connection
+	lineageTag: 92c7e847-b6a6-5bbe-9a29-2165eec1a6b1
+
+	column connection_id
+		dataType: string
+		lineageTag: 762686b8-a8ef-5c91-9ac6-f230b8b39a30
+		summarizeBy: none
+		sourceColumn: connection_id
+
+		annotation SummarizationSetBy = User
+
+	column institution_id
+		dataType: string
+		lineageTag: b87aadf1-7558-5e9f-99ed-15f0753abcd1
+		summarizeBy: none
+		sourceColumn: institution_id
+
+		annotation SummarizationSetBy = User
+
+	column source_id
+		dataType: string
+		lineageTag: 11e69d25-5c35-5b07-b32f-752eaf348adb
+		summarizeBy: none
+		sourceColumn: source_id
+
+		annotation SummarizationSetBy = User
+
+	column display_name
+		dataType: string
+		lineageTag: 3f55d8c6-5a07-5c60-8d35-f7b94a6ecfa9
+		summarizeBy: none
+		sourceColumn: display_name
+
+		annotation SummarizationSetBy = User
+
+	column access_mode
+		dataType: string
+		lineageTag: 6be808ae-2649-51bc-aa9d-e6346874c438
+		summarizeBy: none
+		sourceColumn: access_mode
+
+		annotation SummarizationSetBy = User
+
+	column status
+		dataType: string
+		lineageTag: 8f482d3d-f3a0-52d0-a74d-2b66b2dca885
+		summarizeBy: none
+		sourceColumn: status
+
+		annotation SummarizationSetBy = User
+
+	column created_at_utc
+		dataType: string
+		lineageTag: 7349336c-f0de-545f-b21c-20244fd410ba
+		summarizeBy: none
+		sourceColumn: created_at_utc
+
+		annotation SummarizationSetBy = User
+
+	column last_synced_at_utc
+		dataType: string
+		lineageTag: 9dcc956f-1901-5b33-bd7e-a97dfbd69e42
+		summarizeBy: none
+		sourceColumn: last_synced_at_utc
+
+		annotation SummarizationSetBy = User
+
+	column is_demo
+		dataType: int64
+		formatString: 0
+		lineageTag: f3dd6bcb-fed8-57b3-a22c-225ffbb332ed
+		summarizeBy: none
+		sourceColumn: is_demo
+
+		annotation SummarizationSetBy = User
+
+	partition dim_connection = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("dim_connection", {
+				        {"connection_id", type text}, {"institution_id", type text}, {"source_id", type text},
+				        {"display_name", type text}, {"access_mode", type text}, {"status", type text},
+				        {"created_at_utc", type text}, {"last_synced_at_utc", type text}, {"is_demo", Int64.Type}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

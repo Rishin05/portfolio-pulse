@@ -1,0 +1,70 @@
+table check_totals
+	lineageTag: 95877d2f-5eba-5b55-91c5-fe11c4031c79
+
+	column check_id
+		dataType: string
+		lineageTag: adefbbdb-8795-5526-8734-d8893f4a8e93
+		summarizeBy: none
+		sourceColumn: check_id
+
+		annotation SummarizationSetBy = User
+
+	column check_name
+		dataType: string
+		lineageTag: 16508a6d-3c47-512a-844a-3822533250e3
+		summarizeBy: none
+		sourceColumn: check_name
+
+		annotation SummarizationSetBy = User
+
+	column unit
+		dataType: string
+		lineageTag: cc3c5855-9d12-5d58-8b80-e2ca1a549ceb
+		summarizeBy: none
+		sourceColumn: unit
+
+		annotation SummarizationSetBy = User
+
+	column sql_value
+		dataType: double
+		formatString: #,0.00####
+		lineageTag: 77c3b616-6615-5221-968c-a419e0fd7850
+		summarizeBy: none
+		sourceColumn: sql_value
+
+		annotation SummarizationSetBy = User
+
+	column tolerance
+		dataType: double
+		formatString: #,0.00####
+		lineageTag: 45be9fbf-afd3-5122-8a92-1962800d00f7
+		summarizeBy: none
+		sourceColumn: tolerance
+
+		annotation SummarizationSetBy = User
+
+	column generated_at_utc
+		dataType: string
+		lineageTag: 3065c8ff-f4ea-58cf-9aa4-93d09bb87f97
+		summarizeBy: none
+		sourceColumn: generated_at_utc
+
+		annotation SummarizationSetBy = User
+
+	partition check_totals = m
+		mode: import
+		source =
+				let
+				    // SQL control totals written by scripts/reconcile_powerbi.py. If the file is not there yet,
+				    // load an empty table so the rest of the report still refreshes.
+				    Empty  = #table(
+				                 type table [check_id = text, check_name = text, unit = text, sql_value = number,
+				                             tolerance = number, generated_at_utc = text], {}),
+				    Loaded = try Table.Buffer(fnLoadCsv("check_totals", {
+				                 {"check_id", type text}, {"check_name", type text}, {"unit", type text},
+				                 {"sql_value", type number}, {"tolerance", type number}, {"generated_at_utc", type text}}))
+				             otherwise Empty
+				in
+				    Loaded
+
+	annotation PBI_ResultType = Table

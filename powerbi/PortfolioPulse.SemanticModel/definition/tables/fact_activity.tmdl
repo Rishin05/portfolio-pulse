@@ -1,0 +1,220 @@
+table fact_activity
+	lineageTag: 235e7e70-7577-5080-84cd-0aa2a4c1c56c
+
+	column activity_id
+		dataType: string
+		lineageTag: e8d9d330-78cd-5730-91b9-558b406aff53
+		summarizeBy: none
+		sourceColumn: activity_id
+
+		annotation SummarizationSetBy = User
+
+	column account_id
+		dataType: string
+		isHidden
+		lineageTag: cba19897-c3a4-56e3-953b-841176b310c4
+		summarizeBy: none
+		sourceColumn: account_id
+
+		annotation SummarizationSetBy = User
+
+	column activity_type
+		dataType: string
+		lineageTag: 1cb5b37b-6313-505b-9836-360539179efc
+		summarizeBy: none
+		sourceColumn: activity_type
+
+		annotation SummarizationSetBy = User
+
+	column raw_type
+		dataType: string
+		lineageTag: b8c64faa-38da-505c-8e3e-f3cc0c177466
+		summarizeBy: none
+		sourceColumn: raw_type
+
+		annotation SummarizationSetBy = User
+
+	column trade_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: 85a79ca2-dc64-591a-8d48-e2256001b1ba
+		summarizeBy: none
+		sourceColumn: trade_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column symbol
+		dataType: string
+		lineageTag: 9064a513-c6da-5c58-9189-d2c757946a99
+		summarizeBy: none
+		sourceColumn: symbol
+
+		annotation SummarizationSetBy = User
+
+	column quantity
+		dataType: double
+		formatString: #,0.####
+		lineageTag: 75758fb9-a68c-540a-9e70-b8295eea88b5
+		summarizeBy: none
+		sourceColumn: quantity
+
+		annotation SummarizationSetBy = User
+
+	column amount
+		dataType: double
+		formatString: #,0.00
+		lineageTag: ef5ff19a-fef5-53eb-9d33-075b7c09dce3
+		summarizeBy: none
+		sourceColumn: amount
+
+		annotation SummarizationSetBy = User
+
+	column currency
+		dataType: string
+		lineageTag: ac00a8ac-ea40-59a0-bd57-d4494e7e4523
+		summarizeBy: none
+		sourceColumn: currency
+
+		annotation SummarizationSetBy = User
+
+	column fx_rate
+		dataType: double
+		formatString: 0.0000
+		lineageTag: aa96a6e4-ce9f-5113-b986-3d400501535d
+		summarizeBy: none
+		sourceColumn: fx_rate
+
+		annotation SummarizationSetBy = User
+
+	column fx_rate_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 008c89ea-daff-5443-a4ac-a943cb326ccb
+		summarizeBy: none
+		sourceColumn: fx_rate_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column fx_gap_days
+		dataType: int64
+		formatString: 0
+		lineageTag: 95392826-1f0e-5ffa-b4c8-4173caf268e7
+		summarizeBy: none
+		sourceColumn: fx_gap_days
+
+		annotation SummarizationSetBy = User
+
+	column fx_status
+		dataType: string
+		lineageTag: 4aaa3b1c-f4bc-5c01-bf7e-1b18d79e9541
+		summarizeBy: none
+		sourceColumn: fx_status
+
+		annotation SummarizationSetBy = User
+
+	column amount_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 4b3e6305-8258-5cca-8b24-4755e2cca805
+		summarizeBy: sum
+		sourceColumn: amount_cad
+
+		annotation SummarizationSetBy = User
+
+	column counter_amount
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 3b0fe2d5-1df7-5099-9ae6-e37e7e81e41f
+		summarizeBy: none
+		sourceColumn: counter_amount
+
+		annotation SummarizationSetBy = User
+
+	column counter_currency
+		dataType: string
+		lineageTag: 0a3cf38e-c68d-5ce1-8f0d-ba9b221072f8
+		summarizeBy: none
+		sourceColumn: counter_currency
+
+		annotation SummarizationSetBy = User
+
+	column counter_amount_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: b55e1232-e596-52e6-ba00-346d85554dae
+		summarizeBy: sum
+		sourceColumn: counter_amount_cad
+
+		annotation SummarizationSetBy = User
+
+	column counter_fx_status
+		dataType: string
+		lineageTag: 92a7515a-5108-5dba-a033-b3d7b8ee36a5
+		summarizeBy: none
+		sourceColumn: counter_fx_status
+
+		annotation SummarizationSetBy = User
+
+	column reported_fx_rate
+		dataType: double
+		formatString: 0.0000
+		lineageTag: dbb3f817-8c8b-56a8-8340-0f50e13bf9fe
+		summarizeBy: none
+		sourceColumn: reported_fx_rate
+
+		annotation SummarizationSetBy = User
+
+	column fx_conversion_cost_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: f91600fc-2418-5123-9a9e-23e4fc6adf46
+		summarizeBy: sum
+		sourceColumn: fx_conversion_cost_cad
+
+		annotation SummarizationSetBy = User
+
+	column quality_flag
+		dataType: string
+		lineageTag: a3868e33-a6e2-51c8-85f8-020739c27a9f
+		summarizeBy: none
+		sourceColumn: quality_flag
+
+		annotation SummarizationSetBy = User
+
+	column source_id
+		dataType: string
+		isHidden
+		lineageTag: 4bc2d87b-4e66-5864-8ab9-73a12cb9e32b
+		summarizeBy: none
+		sourceColumn: source_id
+
+		annotation SummarizationSetBy = User
+
+	partition fact_activity = m
+		mode: import
+		source =
+				let
+				    Raw     = Csv.Document(File.Contents(DataFolder & "fact_activity.csv"),
+				                  [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Headers = Table.PromoteHeaders(Raw, [PromoteAllScalars = true]),
+				    Nulls   = Table.TransformColumns(Headers,
+				                  List.Transform(Table.ColumnNames(Headers), (c) => {c, each if _ = "" then null else _})),
+				    DateOnly = Table.TransformColumns(Nulls,
+				                  {{"trade_date", each if _ = null then null else Text.Start(_, 10), type text}}),
+				    Source  = Table.TransformColumnTypes(DateOnly, {
+				        {"activity_id", type text}, {"account_id", type text}, {"activity_type", type text}, {"raw_type", type text},
+				        {"trade_date", type date}, {"symbol", type text}, {"quantity", type number}, {"amount", type number},
+				        {"currency", type text}, {"fx_rate", type number}, {"fx_rate_date", type date}, {"fx_gap_days", Int64.Type},
+				        {"fx_status", type text}, {"amount_cad", type number}, {"counter_amount", type number},
+				        {"counter_currency", type text}, {"counter_amount_cad", type number}, {"counter_fx_status", type text},
+				        {"reported_fx_rate", type number}, {"fx_conversion_cost_cad", type number}, {"quality_flag", type text},
+				        {"source_id", type text}}, "en-CA")
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

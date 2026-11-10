@@ -1,0 +1,74 @@
+table dim_account
+	lineageTag: 16cc96da-0708-5daa-881c-952cb79a3b87
+
+	column account_id
+		dataType: string
+		lineageTag: 62df6d06-4e22-5a4a-9582-4a52856af404
+		summarizeBy: none
+		sourceColumn: account_id
+
+		annotation SummarizationSetBy = User
+
+	column display_name
+		dataType: string
+		lineageTag: fed6ec7f-51e9-5d48-a7cd-04b471b953ce
+		summarizeBy: none
+		sourceColumn: display_name
+
+		annotation SummarizationSetBy = User
+
+	column account_type
+		dataType: string
+		lineageTag: ad007fd8-fcb7-538b-99c6-fea9c7323819
+		summarizeBy: none
+		sourceColumn: account_type
+
+		annotation SummarizationSetBy = User
+
+	column base_currency
+		dataType: string
+		lineageTag: c8ef2d4c-175d-51ef-bc2f-b4f426badee4
+		summarizeBy: none
+		sourceColumn: base_currency
+
+		annotation SummarizationSetBy = User
+
+	column is_demo
+		dataType: int64
+		formatString: 0
+		lineageTag: 3e348648-f6e6-560f-a0bc-5cf2df0d8f42
+		summarizeBy: none
+		sourceColumn: is_demo
+
+		annotation SummarizationSetBy = User
+
+	column institution_id
+		dataType: string
+		isHidden
+		lineageTag: ff8f8919-2cf4-5ba3-8228-46300054b4b3
+		summarizeBy: none
+		sourceColumn: institution_id
+
+		annotation SummarizationSetBy = User
+
+	column connection_id
+		dataType: string
+		isHidden
+		lineageTag: 6d0dd6f2-5236-587c-848b-4a757c5ed898
+		summarizeBy: none
+		sourceColumn: connection_id
+
+		annotation SummarizationSetBy = User
+
+	partition dim_account = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("dim_account", {
+				        {"account_id", type text}, {"display_name", type text}, {"account_type", type text},
+				        {"base_currency", type text}, {"is_demo", Int64.Type}, {"institution_id", type text},
+				        {"connection_id", type text}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

@@ -1,0 +1,3 @@
+# Power BI Desktop local files. cache.abf holds a copy of the loaded DATA: never commit it.
+**/.pbi/localSettings.json
+**/.pbi/cache.abf

@@ -1,0 +1,72 @@
+relationship 136565f6-d66c-5b7b-9f26-e112ba7f4f1d
+	fromColumn: fact_perf_account_daily.as_of_date
+	toColumn: dim_date.date
+
+relationship 9f759feb-56b0-519f-9d20-0f055f6efe84
+	fromColumn: fact_perf_household_daily.as_of_date
+	toColumn: dim_date.date
+
+relationship f21f5918-5cc1-5396-9907-9d0264b2ddd6
+	fromColumn: fact_cash_flow.flow_date
+	toColumn: dim_date.date
+
+relationship 0e2dcb12-3335-5267-b659-890c744e02c6
+	fromColumn: fact_activity.trade_date
+	toColumn: dim_date.date
+
+relationship b3da4ad1-77c9-52ad-bfe3-85ad3a31dab7
+	fromColumn: fact_holding_snapshot.as_of_date
+	toColumn: dim_date.date
+
+relationship c42d860d-1c3d-580f-8435-3f5d4349baef
+	fromColumn: fact_news.market_date
+	toColumn: dim_date.date
+
+relationship f61d3f18-9b24-5c14-ab51-2351b59822d9
+	fromColumn: fact_fx_cost.as_of_date
+	toColumn: dim_date.date
+
+relationship abc2c172-4c01-51b1-aa81-001a9c15691e
+	fromColumn: fact_perf_account_daily.account_id
+	toColumn: dim_account.account_id
+
+relationship b6ed2b84-2411-5414-8239-3cdace0471e4
+	fromColumn: fact_cash_flow.account_id
+	toColumn: dim_account.account_id
+
+relationship 7ff25b2b-b834-5f0f-ba88-0cc023d89d91
+	fromColumn: fact_activity.account_id
+	toColumn: dim_account.account_id
+
+relationship f558a98c-1e8b-5890-8bc7-eda2ab75c4c9
+	fromColumn: fact_holding_snapshot.account_id
+	toColumn: dim_account.account_id
+
+relationship 6517597c-8757-5648-84ab-08e0133d8156
+	fromColumn: dim_account.institution_id
+	toColumn: dim_institution.institution_id
+
+relationship 6ea88070-5780-5168-af76-e8b1251a4b38
+	fromColumn: dim_account.connection_id
+	toColumn: dim_connection.connection_id
+
+relationship 343e4f76-7763-59f3-8d94-ea4a76501548
+	fromColumn: fact_fx_cost.institution_id
+	toColumn: dim_institution.institution_id
+
+relationship cdfcb8a8-1728-5530-ac50-791aa5e57dc3
+	fromColumn: dim_fee_schedule.institution_id
+	toColumn: dim_institution.institution_id
+
+relationship cb28cc2c-1a86-585f-bff9-0bf50bbb0f91
+	fromColumn: dim_fx_posted_rate.institution_id
+	toColumn: dim_institution.institution_id
+
+relationship a9fea2dd-0c6a-51c2-b8a5-b9d798a24d59
+	fromColumn: bridge_news_symbol.symbol
+	toColumn: dim_watchlist.symbol
+
+relationship bec1af4e-c728-5c20-9f76-9dd568254510
+	crossFilteringBehavior: bothDirections
+	fromColumn: bridge_news_symbol.article_id
+	toColumn: fact_news.article_id

@@ -1,0 +1,182 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "dq_table",
+  "position": {
+    "x": 24,
+    "y": 190,
+    "z": 6000,
+    "height": 250,
+    "width": 760,
+    "tabOrder": 6000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "data_quality"
+                    }
+                  },
+                  "Property": "area"
+                }
+              },
+              "queryRef": "data_quality.area",
+              "nativeQueryRef": "area",
+              "displayName": "Area"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "data_quality"
+                    }
+                  },
+                  "Property": "item"
+                }
+              },
+              "queryRef": "data_quality.item",
+              "nativeQueryRef": "item",
+              "displayName": "Item"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "data_quality"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "data_quality.status",
+              "nativeQueryRef": "status",
+              "displayName": "Status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "data_quality"
+                    }
+                  },
+                  "Property": "last_date"
+                }
+              },
+              "queryRef": "data_quality.last_date",
+              "nativeQueryRef": "last_date",
+              "displayName": "Latest data"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "data_quality"
+                    }
+                  },
+                  "Property": "age_days"
+                }
+              },
+              "queryRef": "data_quality.age_days",
+              "nativeQueryRef": "age_days",
+              "displayName": "Age (days)"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "data_quality"
+                    }
+                  },
+                  "Property": "detail"
+                }
+              },
+              "queryRef": "data_quality.detail",
+              "nativeQueryRef": "detail",
+              "displayName": "Detail"
+            }
+          ]
+        }
+      }
+    },
+    "objects": {
+      "total": [
+        {
+          "properties": {
+            "totals": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Freshness check for each account and each watchlist symbol'"
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#1A1A19'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "general": [
+        {
+          "properties": {
+            "altText": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Table: one row per account and per watchlist symbol with its status, latest data date, age in days and detail.'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

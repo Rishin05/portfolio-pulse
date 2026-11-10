@@ -1,0 +1,152 @@
+table fact_perf_household_daily
+	lineageTag: a9b23ee8-1ca8-53d9-9715-e45a9438946d
+
+	column household_id
+		dataType: string
+		lineageTag: dfaeb2ff-e81d-5e92-a382-bf71c885f368
+		summarizeBy: none
+		sourceColumn: household_id
+
+		annotation SummarizationSetBy = User
+
+	column as_of_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		lineageTag: fd1ec37a-992a-5b8a-94fb-e18dc2f7facb
+		summarizeBy: none
+		sourceColumn: as_of_date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column accounts
+		dataType: int64
+		formatString: 0
+		lineageTag: a3c18bd5-dc4c-55f2-bec4-9252531ab00d
+		summarizeBy: none
+		sourceColumn: accounts
+
+		annotation SummarizationSetBy = User
+
+	column accounts_with_return
+		dataType: int64
+		formatString: 0
+		lineageTag: ba57148d-38ab-58f4-a55d-9fcca4ae6280
+		summarizeBy: none
+		sourceColumn: accounts_with_return
+
+		annotation SummarizationSetBy = User
+
+	column end_value_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 1ac08f28-51cc-50b8-9e7d-28c3410c35e2
+		summarizeBy: none
+		sourceColumn: end_value_cad
+
+		annotation SummarizationSetBy = User
+
+	column external_flow_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: c62b5a7e-dd39-5167-a2f2-e6069cef864b
+		summarizeBy: sum
+		sourceColumn: external_flow_cad
+
+		annotation SummarizationSetBy = User
+
+	column internal_transfer_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 65141e0c-3df1-582f-8b40-33397192d52a
+		summarizeBy: sum
+		sourceColumn: internal_transfer_cad
+
+		annotation SummarizationSetBy = User
+
+	column investment_change_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 8ac9752f-82f7-5ab1-89af-559edde9db02
+		summarizeBy: sum
+		sourceColumn: investment_change_cad
+
+		annotation SummarizationSetBy = User
+
+	column market_change_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 5e275d34-5c83-5419-b4b1-f3edde0c117e
+		summarizeBy: sum
+		sourceColumn: market_change_cad
+
+		annotation SummarizationSetBy = User
+
+	column fx_change_cad
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 756e1ebb-1ba2-5588-8a68-92e9d4368320
+		summarizeBy: sum
+		sourceColumn: fx_change_cad
+
+		annotation SummarizationSetBy = User
+
+	column return_cad
+		dataType: double
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: a9d17f42-1d6c-52b8-9e76-44b1f9ef8480
+		summarizeBy: none
+		sourceColumn: return_cad
+
+		annotation SummarizationSetBy = User
+
+	column fx_status
+		dataType: string
+		lineageTag: 7cf7f5ca-1bb1-59b5-ab89-d61a3ab24b4f
+		summarizeBy: none
+		sourceColumn: fx_status
+
+		annotation SummarizationSetBy = User
+
+	column computed_at_utc
+		dataType: string
+		isHidden
+		lineageTag: da184854-eb50-5e40-85de-72559306f892
+		summarizeBy: none
+		sourceColumn: computed_at_utc
+
+		annotation SummarizationSetBy = User
+
+	column quality_label
+		dataType: string
+		lineageTag: c557d59e-e70c-5d88-ae89-a93e38f43aef
+		summarizeBy: none
+		sourceColumn: quality_label
+
+		annotation SummarizationSetBy = User
+
+	column is_demo
+		dataType: int64
+		formatString: 0
+		lineageTag: 16205f1b-e976-5785-80f2-d02e86f6af8a
+		summarizeBy: none
+		sourceColumn: is_demo
+
+		annotation SummarizationSetBy = User
+
+	partition fact_perf_household_daily = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("fact_perf_household_daily", {
+				        {"household_id", type text}, {"as_of_date", type date}, {"accounts", Int64.Type},
+				        {"accounts_with_return", Int64.Type}, {"end_value_cad", type number}, {"external_flow_cad", type number},
+				        {"internal_transfer_cad", type number}, {"investment_change_cad", type number},
+				        {"market_change_cad", type number}, {"fx_change_cad", type number}, {"return_cad", type number},
+				        {"fx_status", type text}, {"computed_at_utc", type text}, {"quality_label", type text}, {"is_demo", Int64.Type}})
+				in
+				    Source
+
+	annotation PBI_ResultType = Table

@@ -1,0 +1,35 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-CA
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["DataFolder","fnLoadCsv","_Measures","fact_activity","fact_cash_flow","fact_fx_cost","fact_holding_snapshot","fact_news","fact_perf_account_daily","fact_perf_household_daily","dim_account","dim_connection","dim_date","dim_fee_schedule","dim_fx_posted_rate","dim_institution","dim_source","dim_watchlist","bridge_news_symbol","data_quality","export_info","check_totals","Amount to convert"]
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table _Measures
+ref table fact_activity
+ref table fact_cash_flow
+ref table fact_fx_cost
+ref table fact_holding_snapshot
+ref table fact_news
+ref table fact_perf_account_daily
+ref table fact_perf_household_daily
+ref table dim_account
+ref table dim_connection
+ref table dim_date
+ref table dim_fee_schedule
+ref table dim_fx_posted_rate
+ref table dim_institution
+ref table dim_source
+ref table dim_watchlist
+ref table bridge_news_symbol
+ref table data_quality
+ref table export_info
+ref table check_totals
+ref table 'Amount to convert'

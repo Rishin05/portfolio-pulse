@@ -1,0 +1,111 @@
+table dim_date
+	lineageTag: b699eab8-ab75-5048-b881-242df1c2082c
+	dataCategory: Time
+
+	column date
+		dataType: dateTime
+		isKey
+		formatString: yyyy-mm-dd
+		lineageTag: ee30afdc-3b2e-500d-84af-361bb450e3cb
+		summarizeBy: none
+		sourceColumn: date
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column year
+		dataType: int64
+		formatString: 0
+		lineageTag: adb9ace5-2f13-568f-8a44-fb4c623b2538
+		summarizeBy: none
+		sourceColumn: year
+
+		annotation SummarizationSetBy = User
+
+	column month_num
+		dataType: int64
+		formatString: 0
+		lineageTag: 973611f8-07bd-5286-ab7c-b43a218b9d23
+		summarizeBy: none
+		sourceColumn: month_num
+
+		annotation SummarizationSetBy = User
+
+	column month
+		dataType: string
+		lineageTag: 4b328571-d6fa-50cc-8232-1b978624c16c
+		summarizeBy: none
+		sourceColumn: month
+		sortByColumn: month_num
+
+		annotation SummarizationSetBy = User
+
+	column year_month
+		dataType: string
+		lineageTag: 939c213c-13c9-5227-8312-61b0846b7c67
+		summarizeBy: none
+		sourceColumn: year_month
+
+		annotation SummarizationSetBy = User
+
+	column week_of_year
+		dataType: int64
+		formatString: 0
+		lineageTag: 2108ba8d-2831-59ba-8d1f-8c03682bdea8
+		summarizeBy: none
+		sourceColumn: week_of_year
+
+		annotation SummarizationSetBy = User
+
+	column weekday_num
+		dataType: int64
+		formatString: 0
+		lineageTag: 6f86388e-6f91-53be-abf0-a965b5335f2b
+		summarizeBy: none
+		sourceColumn: weekday_num
+
+		annotation SummarizationSetBy = User
+
+	column weekday
+		dataType: string
+		lineageTag: d1ee69c7-416b-51c0-9585-713b914b81d3
+		summarizeBy: none
+		sourceColumn: weekday
+		sortByColumn: weekday_num
+
+		annotation SummarizationSetBy = User
+
+	column is_weekday
+		dataType: boolean
+		lineageTag: 6be205de-90a4-570d-9344-f366a5def2bd
+		summarizeBy: none
+		sourceColumn: is_weekday
+
+		annotation SummarizationSetBy = User
+
+	column week_start
+		dataType: dateTime
+		formatString: mmm d
+		lineageTag: 5cf8d799-8221-55d8-97ec-3b6b987260da
+		summarizeBy: none
+		sourceColumn: week_start
+
+		annotation SummarizationSetBy = User
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	partition dim_date = m
+		mode: import
+		source =
+				let
+				    Source = fnLoadCsv("dim_date", {
+				        {"date", type date}, {"year", Int64.Type}, {"month_num", Int64.Type}, {"month", type text},
+				        {"year_month", type text}, {"week_of_year", Int64.Type}, {"weekday_num", Int64.Type},
+				        {"weekday", type text}, {"is_weekday", type logical}}),
+				    // Monday of each date's week: one calendar row per week (model-side only; the CSV contract is unchanged)
+				    WeekStart = Table.AddColumn(Source, "week_start", each Date.AddDays([date], 1 - [weekday_num]), type date)
+				in
+				    WeekStart
+
+	annotation PBI_ResultType = Table

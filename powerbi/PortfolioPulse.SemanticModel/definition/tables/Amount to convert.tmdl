@@ -1,0 +1,27 @@
+table 'Amount to convert'
+	lineageTag: e3d79308-40a2-5b2a-9da1-923c0f186a2b
+
+	/// The amount picked on the FX & fees page (1,000 when nothing is picked).
+	measure 'Amount to convert Value' = SELECTEDVALUE ( 'Amount to convert'[Amount to convert], 1000 )
+		formatString: #,0
+		lineageTag: 5e1bf1bf-76fb-5436-b2bf-c829701e985f
+
+	column 'Amount to convert'
+		dataType: int64
+		formatString: 0
+		lineageTag: 55ef3594-5cf8-58af-9faf-04664661f301
+		summarizeBy: none
+		sourceColumn: Amount to convert
+
+		annotation SummarizationSetBy = User
+
+	partition 'Amount to convert' = m
+		mode: import
+		source =
+				let
+				    // What-if amounts: 100 to 50,000 in steps of 100 (same values as GENERATESERIES(100, 50000, 100))
+				    Source = Table.FromColumns({List.Numbers(100, 500, 100)}, type table [#"Amount to convert" = Int64.Type])
+				in
+				    Source
+
+	annotation PBI_ResultType = Table
