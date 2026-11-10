@@ -86,3 +86,4 @@ table dim_connection
 				    Source
 
 	annotation PBI_ResultType = Table
+

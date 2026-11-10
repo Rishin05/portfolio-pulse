@@ -3,9 +3,9 @@
   "name": "slicer_symbol",
   "position": {
     "x": 24,
-    "y": 116,
+    "y": 112,
     "z": 3000,
-    "height": 64,
+    "height": 74,
     "width": 300,
     "tabOrder": 3000
   },
@@ -95,6 +95,19 @@
               "expr": {
                 "Literal": {
                   "Value": "'Filter: choose one or more watchlist symbols.'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
                 }
               }
             }

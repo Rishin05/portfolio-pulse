@@ -33,3 +33,6 @@ ref table data_quality
 ref table export_info
 ref table check_totals
 ref table 'Amount to convert'
+
+ref cultureInfo en-US
+

@@ -3,9 +3,9 @@
   "name": "rec_status",
   "position": {
     "x": 24,
-    "y": 116,
+    "y": 112,
     "z": 3000,
-    "height": 64,
+    "height": 74,
     "width": 920,
     "tabOrder": 3000
   },
@@ -52,6 +52,13 @@
                       "Value": "'#1A1A19'"
                     }
                   }
+                }
+              }
+            },
+            "labelDisplayUnits": {
+              "expr": {
+                "Literal": {
+                  "Value": "1D"
                 }
               }
             }
@@ -131,6 +138,53 @@
               "expr": {
                 "Literal": {
                   "Value": "'Text: whether every reconciliation check passed.'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "padding": [
+        {
+          "properties": {
+            "top": {
+              "expr": {
+                "Literal": {
+                  "Value": "2D"
+                }
+              }
+            },
+            "bottom": {
+              "expr": {
+                "Literal": {
+                  "Value": "2D"
+                }
+              }
+            },
+            "left": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
+                }
+              }
+            },
+            "right": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
                 }
               }
             }

@@ -42,7 +42,7 @@
                 }
               },
               "queryRef": "dim_institution.display_name",
-              "nativeQueryRef": "display_name",
+              "nativeQueryRef": "Institution",
               "displayName": "Institution"
             },
             {
@@ -57,7 +57,7 @@
                 }
               },
               "queryRef": "dim_account.display_name",
-              "nativeQueryRef": "display_name",
+              "nativeQueryRef": "Account",
               "displayName": "Account"
             },
             {
@@ -104,6 +104,21 @@
               "queryRef": "dim_connection.last_synced_at_utc",
               "nativeQueryRef": "last_synced_at_utc",
               "displayName": "Last synced (UTC)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Accounts"
+                }
+              },
+              "queryRef": "_Measures.Accounts",
+              "nativeQueryRef": "Accounts",
+              "displayName": "Accounts"
             }
           ]
         }
@@ -170,6 +185,19 @@
               "expr": {
                 "Literal": {
                   "Value": "'Table: each account with its connection and institution, access mode, status and last sync time. Access is always read-only.'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
                 }
               }
             }

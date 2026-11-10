@@ -3,9 +3,9 @@
   "name": "slicer_amount",
   "position": {
     "x": 24,
-    "y": 116,
+    "y": 112,
     "z": 3000,
-    "height": 64,
+    "height": 74,
     "width": 300,
     "tabOrder": 3000
   },
@@ -95,6 +95,19 @@
               "expr": {
                 "Literal": {
                   "Value": "'What-if control: choose the amount to convert, in the currency you are converting from.'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
                 }
               }
             }

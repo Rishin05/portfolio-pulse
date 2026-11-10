@@ -16,3 +16,8 @@ logs/
 # Your curated watchlist (personal)
 config/watchlist*
 config/watchlist.xlsx
+
+# Demo database, demo export and local .pbix working copies (built files, not source)
+data/demo/
+data/powerbi_demo/
+data/pbix/

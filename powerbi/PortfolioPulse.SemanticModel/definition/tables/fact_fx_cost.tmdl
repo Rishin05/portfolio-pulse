@@ -205,3 +205,4 @@ table fact_fx_cost
 				    Source
 
 	annotation PBI_ResultType = Table
+

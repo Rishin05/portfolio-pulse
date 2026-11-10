@@ -140,3 +140,4 @@ table fact_holding_snapshot
 				    Source
 
 	annotation PBI_ResultType = Table
+

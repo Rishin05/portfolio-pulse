@@ -81,3 +81,4 @@ table dim_watchlist
 				    Source
 
 	annotation PBI_ResultType = Table
+

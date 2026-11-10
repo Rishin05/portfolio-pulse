@@ -218,3 +218,4 @@ table fact_activity
 				    Source
 
 	annotation PBI_ResultType = Table
+

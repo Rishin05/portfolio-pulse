@@ -216,3 +216,4 @@ table fact_perf_account_daily
 				    Source
 
 	annotation PBI_ResultType = Table
+

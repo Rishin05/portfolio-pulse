@@ -3,9 +3,9 @@
   "name": "slicer_dates",
   "position": {
     "x": 340,
-    "y": 116,
+    "y": 112,
     "z": 4000,
-    "height": 64,
+    "height": 74,
     "width": 420,
     "tabOrder": 4000
   },
@@ -95,6 +95,19 @@
               "expr": {
                 "Literal": {
                   "Value": "'Filter: choose a start and end date.'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
                 }
               }
             }

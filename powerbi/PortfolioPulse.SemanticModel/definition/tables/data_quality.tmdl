@@ -64,3 +64,4 @@ table data_quality
 				    Source
 
 	annotation PBI_ResultType = Table
+

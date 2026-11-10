@@ -31,7 +31,7 @@
               {
                 "textRuns": [
                   {
-                    "value": "The same totals calculated twice: once by this report's measures and once straight from the database. Clear all filters before reading this page.",
+                    "value": "The same totals calculated twice: by this report and straight from the database. Clear all filters first.",
                     "textStyle": {
                       "fontSize": "10pt",
                       "color": "#55544F"

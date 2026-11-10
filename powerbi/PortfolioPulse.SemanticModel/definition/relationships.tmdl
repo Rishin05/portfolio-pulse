@@ -70,3 +70,4 @@ relationship bec1af4e-c728-5c20-9f76-9dd568254510
 	crossFilteringBehavior: bothDirections
 	fromColumn: bridge_news_symbol.article_id
 	toColumn: fact_news.article_id
+

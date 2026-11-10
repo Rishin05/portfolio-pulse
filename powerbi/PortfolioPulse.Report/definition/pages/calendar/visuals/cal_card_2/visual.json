@@ -3,9 +3,9 @@
   "name": "cal_card_2",
   "position": {
     "x": 808,
-    "y": 116,
+    "y": 112,
     "z": 6000,
-    "height": 64,
+    "height": 74,
     "width": 144,
     "tabOrder": 6000
   },
@@ -52,6 +52,13 @@
                       "Value": "'#1A1A19'"
                     }
                   }
+                }
+              }
+            },
+            "labelDisplayUnits": {
+              "expr": {
+                "Literal": {
+                  "Value": "1D"
                 }
               }
             }
@@ -131,6 +138,53 @@
               "expr": {
                 "Literal": {
                   "Value": "'Card: number of days with a negative return.'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "padding": [
+        {
+          "properties": {
+            "top": {
+              "expr": {
+                "Literal": {
+                  "Value": "2D"
+                }
+              }
+            },
+            "bottom": {
+              "expr": {
+                "Literal": {
+                  "Value": "2D"
+                }
+              }
+            },
+            "left": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
+                }
+              }
+            },
+            "right": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
                 }
               }
             }

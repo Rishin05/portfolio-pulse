@@ -93,3 +93,4 @@ table fact_cash_flow
 				    Source
 
 	annotation PBI_ResultType = Table
+

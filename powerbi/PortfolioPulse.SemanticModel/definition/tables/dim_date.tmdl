@@ -109,3 +109,4 @@ table dim_date
 				    WeekStart
 
 	annotation PBI_ResultType = Table
+

@@ -587,6 +587,12 @@ table _Measures
 		displayFolder: 8 Reconciliation
 		lineageTag: 9417913b-e915-5edf-9764-abdc3525073b
 
+	/// Number of accounts. Keeps every account visible in the connections table.
+	measure Accounts = COUNTROWS ( dim_account )
+		formatString: #,0
+		displayFolder: 7 Labels & quality
+		lineageTag: 19cf605b-924d-4b97-ae90-7c2e74c50c66
+
 	column Column1
 		dataType: string
 		isHidden
@@ -606,3 +612,4 @@ table _Measures
 				    Source
 
 	annotation PBI_ResultType = Table
+

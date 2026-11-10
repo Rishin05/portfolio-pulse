@@ -20,3 +20,4 @@ expression fnLoadCsv =
 	lineageTag: f5cdfdaa-68b6-5807-a7cc-9c6ce191e464
 
 	annotation PBI_ResultType = Function
+

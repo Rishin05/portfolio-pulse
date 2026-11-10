@@ -142,3 +142,4 @@ table fact_news
 				    Source
 
 	annotation PBI_ResultType = Table
+

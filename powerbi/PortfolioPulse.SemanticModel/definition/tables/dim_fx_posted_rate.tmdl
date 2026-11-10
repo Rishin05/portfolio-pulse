@@ -121,3 +121,4 @@ table dim_fx_posted_rate
 				    Source
 
 	annotation PBI_ResultType = Table
+

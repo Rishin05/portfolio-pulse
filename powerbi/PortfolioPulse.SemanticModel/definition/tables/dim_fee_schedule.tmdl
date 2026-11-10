@@ -132,3 +132,4 @@ table dim_fee_schedule
 				    Source
 
 	annotation PBI_ResultType = Table
+

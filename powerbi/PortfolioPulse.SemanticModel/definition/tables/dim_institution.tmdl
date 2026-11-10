@@ -54,3 +54,4 @@ table dim_institution
 				    Source
 
 	annotation PBI_ResultType = Table
+
