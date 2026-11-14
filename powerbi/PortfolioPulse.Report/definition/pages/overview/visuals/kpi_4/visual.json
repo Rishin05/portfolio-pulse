@@ -1,9 +1,9 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "kpi_4",
   "position": {
-    "x": 960,
-    "y": 190,
+    "x": 961.18226600985224,
+    "y": 167.58620689655172,
     "z": 10000,
     "height": 84,
     "width": 296,

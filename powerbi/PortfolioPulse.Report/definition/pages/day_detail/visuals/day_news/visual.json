@@ -1,5 +1,5 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "day_news",
   "position": {
     "x": 640,
@@ -106,7 +106,7 @@
                 "Property": "published_local_date"
               }
             },
-            "direction": "Descending"
+            "direction": "Ascending"
           }
         ]
       }

@@ -1,9 +1,9 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "card_issues",
   "position": {
-    "x": 1024,
-    "y": 112,
+    "x": 1006.4039408866995,
+    "y": 75.369458128078819,
     "z": 6000,
     "height": 74,
     "width": 232,

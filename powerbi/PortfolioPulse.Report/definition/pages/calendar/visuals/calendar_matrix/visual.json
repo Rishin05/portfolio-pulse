@@ -1,38 +1,18 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "calendar_matrix",
   "position": {
-    "x": 24,
-    "y": 190,
+    "x": 23.940886699507388,
+    "y": 189.7536945812808,
     "z": 9000,
-    "height": 506,
-    "width": 560,
+    "height": 506.30541871921184,
+    "width": 397.24137931034483,
     "tabOrder": 9000
   },
   "visual": {
     "visualType": "pivotTable",
     "query": {
       "queryState": {
-        "Rows": {
-          "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "dim_date"
-                    }
-                  },
-                  "Property": "week_start"
-                }
-              },
-              "queryRef": "dim_date.week_start",
-              "nativeQueryRef": "week_start",
-              "displayName": "Week of",
-              "active": true
-            }
-          ]
-        },
         "Columns": {
           "projections": [
             {
@@ -48,8 +28,28 @@
               },
               "queryRef": "dim_date.weekday",
               "nativeQueryRef": "weekday",
-              "displayName": "Weekday",
-              "active": true
+              "active": true,
+              "displayName": "Weekday"
+            }
+          ]
+        },
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_date"
+                    }
+                  },
+                  "Property": "week_start"
+                }
+              },
+              "queryRef": "dim_date.week_start",
+              "nativeQueryRef": "week_start",
+              "active": true,
+              "displayName": "Week of"
             }
           ]
         },

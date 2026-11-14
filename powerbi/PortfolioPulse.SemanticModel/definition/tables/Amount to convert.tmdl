@@ -1,8 +1,8 @@
 table 'Amount to convert'
 	lineageTag: e3d79308-40a2-5b2a-9da1-923c0f186a2b
 
-	/// The amount picked on the FX & fees page (1,000 when nothing is picked).
-	measure 'Amount to convert Value' = SELECTEDVALUE ( 'Amount to convert'[Amount to convert], 1000 )
+	/// The amount picked on the FX & fees page. With nothing picked, the smallest amount, which is what the slider shows.
+	measure 'Amount to convert Value' = SELECTEDVALUE ( 'Amount to convert'[Amount to convert], MIN ( 'Amount to convert'[Amount to convert] ) )
 		formatString: #,0
 		lineageTag: 5e1bf1bf-76fb-5436-b2bf-c829701e985f
 

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "slicer_day",
   "position": {
     "x": 340,
@@ -28,8 +28,8 @@
               },
               "queryRef": "dim_date.date",
               "nativeQueryRef": "date",
-              "displayName": "Pick a date",
-              "active": true
+              "active": true,
+              "displayName": "Pick a date"
             }
           ]
         }
@@ -84,6 +84,11 @@
               }
             }
           }
+        }
+      ],
+      "general": [
+        {
+          "properties": {}
         }
       ]
     },

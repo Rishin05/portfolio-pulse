@@ -44,9 +44,30 @@ def _dec(value) -> Decimal | None:
     return None if value is None else Decimal(str(value))
 
 
-def benchmark(conn, as_of: date) -> boc_valet.ResolvedRate:
-    """BoC USD/CAD for `as_of` via the Phase 3 rule; stale or missing -> ConverterError."""
-    r = fx_rates.rate_for(conn, "USD", "CAD", as_of)
+DEMO_RATE_SOURCE = "synthetic"
+
+
+def rate_source(conn, institution_id: str) -> str:
+    """Which stored USD/CAD series is the benchmark for this platform.
+
+    Real institutions always use the Bank of Canada. A DEMO institution also does when Bank of
+    Canada rates are stored; in a demo-only database (none stored) it falls back to the
+    synthetic demo series so the public demo still has cost rows. Those rows are labelled DEMO.
+    """
+    row = conn.execute("SELECT is_demo FROM institution WHERE institution_id = ?", (institution_id,)).fetchone()
+    if row is None or not row["is_demo"]:
+        return fx_rates.SOURCE_ID
+    has_boc = conn.execute("SELECT 1 FROM fx_rate WHERE base_currency = 'USD' AND quote_currency = 'CAD' "
+                           "AND source_id = ? LIMIT 1", (fx_rates.SOURCE_ID,)).fetchone()
+    return fx_rates.SOURCE_ID if has_boc else DEMO_RATE_SOURCE
+
+
+def benchmark(conn, as_of: date, source_id: str = fx_rates.SOURCE_ID) -> boc_valet.ResolvedRate:
+    """USD/CAD reference rate for `as_of` via the Phase 3 rule; stale or missing -> ConverterError."""
+    r = fx_rates.rate_for(conn, "USD", "CAD", as_of, source_id)
+    if r.status == "missing" and source_id == DEMO_RATE_SOURCE:
+        raise ConverterError(f"No synthetic demo USD/CAD rate on or before {as_of}. "
+                             "Run: python -m portfolio_pulse demo")
     if r.status == "missing":
         raise ConverterError(f"No Bank of Canada USD/CAD rate on or before {as_of}. "
                              "Run: python -m portfolio_pulse fetch-fx")
@@ -95,7 +116,8 @@ def convert(conn, amount: Decimal, from_currency: str, to_currency: str, institu
         raise ConverterError(f"model must be one of {MODELS}")
     if conn.execute("SELECT 1 FROM institution WHERE institution_id = ?", (institution_id,)).fetchone() is None:
         raise ConverterError(f"Unknown platform '{institution_id}'. Import its fee or quote with fees-import first.")
-    boc = benchmark(conn, as_of)
+    source_id = rate_source(conn, institution_id)
+    boc = benchmark(conn, as_of, source_id)
     fee = _fee_row(conn, institution_id, from_currency, to_currency, as_of) if model in ("auto", "percent") else None
     quotes = _quotes(conn, institution_id, as_of, channel) if model in ("auto", "posted") else []
     if model == "auto" and fee is not None and quotes:
@@ -130,8 +152,10 @@ def convert(conn, amount: Decimal, from_currency: str, to_currency: str, institu
         label = _worst(label, "STALE")
         warnings.append(f"No Bank of Canada rate on {as_of}; using {boc.rate_date} "
                         f"({boc.gap_days} day(s) earlier).")
-    if ref["is_demo"]:
+    if ref["is_demo"] or source_id == DEMO_RATE_SOURCE:
         label = "DEMO"
+    if source_id == DEMO_RATE_SOURCE:
+        warnings.append("DEMO: the reference rate is a synthetic demo rate, not a Bank of Canada rate.")
     age = (as_of - date.fromisoformat(ref["date_checked"])).days
     if fee is not None and age > FEE_RECHECK_DAYS:
         warnings.append(f"Fee last checked {age} days before {as_of}; re-check {ref['source_url']}.")
@@ -171,11 +195,11 @@ COST_COLUMNS = ["as_of_date", "institution_id", "model", "channel", "from_curren
                 "quality_label", "source_ref", "source_url", "date_checked", "is_demo"]
 
 
-def _boc_dates(conn, start: str, end: str | None) -> list[date]:
+def _boc_dates(conn, start: str, end: str | None, source_id: str = fx_rates.SOURCE_ID) -> list[date]:
     rows = conn.execute(
         "SELECT rate_date FROM fx_rate WHERE base_currency = 'USD' AND quote_currency = 'CAD' "
         "AND source_id = ? AND rate_date >= ? AND (? IS NULL OR rate_date <= ?) ORDER BY rate_date",
-        (fx_rates.SOURCE_ID, start, end, end)).fetchall()
+        (source_id, start, end, end)).fetchall()
     return [date.fromisoformat(r[0]) for r in rows]
 
 
@@ -199,7 +223,7 @@ def cost_grid(conn, amounts=GRID_AMOUNTS) -> tuple[list[dict], int]:
     jobs: set[tuple] = set()
     for r in conn.execute("SELECT institution_id, COALESCE(effective_from, date_checked) AS start, effective_to "
                           "FROM fee_schedule WHERE fee_type = 'fx_conversion' AND rate_bps IS NOT NULL").fetchall():
-        for d in _boc_dates(conn, r["start"], r["effective_to"]):
+        for d in _boc_dates(conn, r["start"], r["effective_to"], rate_source(conn, r["institution_id"])):
             jobs.add((r["institution_id"], d, "percent", None))
     for r in conn.execute("SELECT DISTINCT institution_id, rate_date, channel FROM fx_posted_rate").fetchall():
         jobs.add((r["institution_id"], date.fromisoformat(r["rate_date"]), "posted", r["channel"]))

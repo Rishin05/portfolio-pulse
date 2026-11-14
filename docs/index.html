@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfolio Pulse: portfolio analytics in plain language</title>
+<meta name="description" content="An educational fintech analytics project: Python, SQLite and Power BI. Separates investment performance from deposits, shows what currency conversion costs, and reconciles every total against SQL. Demo data only.">
+<style>
+  :root { --ink:#1a1a19; --muted:#55544f; --line:#e2e0da; --bg:#fbfaf7; --card:#ffffff; --accent:#1c5cab; --warm:#b84a1c; --note:#fff4ce; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#f0efec; --muted:#c3c2b7; --line:#3a3a36; --bg:#171716; --card:#20201e; --accent:#86b6ef; --warm:#f0a27c; --note:#3b3418; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  main, header, footer { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  header { padding-top: 56px; }
+  .eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.1; margin: 0 0 16px; letter-spacing: -.02em; }
+  h2 { font-size: 24px; margin: 56px 0 12px; letter-spacing: -.01em; }
+  h3 { font-size: 17px; margin: 0 0 6px; }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  .lede { font-size: 19px; color: var(--muted); }
+  a { color: var(--accent); }
+  .demo { background: var(--note); border-radius: 8px; padding: 10px 14px; margin: 24px 0; font-size: 15px; }
+  .actions { display:flex; flex-wrap:wrap; gap:12px; margin: 24px 0 8px; }
+  .btn { display:inline-block; padding:10px 18px; border-radius:8px; border:1px solid var(--accent); text-decoration:none; font-weight:600; }
+  .btn.primary { background: var(--accent); color: var(--bg); }
+  .numbers { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin: 28px 0; padding:0; list-style:none; }
+  .numbers li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .numbers b { display:block; font-size: 26px; font-variant-numeric: tabular-nums; }
+  .numbers span { color: var(--muted); font-size: 14px; }
+  figure { margin: 20px 0 36px; }
+  figure img { width:100%; height:auto; display:block; border:1px solid var(--line); border-radius:10px; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; max-width: 75ch; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top: 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; }
+  .card p { margin:0; color: var(--muted); font-size: 15px; }
+  code { background: var(--card); border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size: 14px; }
+  .flow { overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; font: 14px/1.7 Consolas, Menlo, monospace; white-space: pre; }
+  footer { color: var(--muted); font-size: 14px; padding: 48px 20px 64px; border-top:1px solid var(--line); margin-top:64px; }
+</style>
+</head>
+<body>
+<header>
+  <p class="eyebrow">Fintech analytics portfolio project · Rishin Patel</p>
+  <h1>Portfolio Pulse</h1>
+  <p class="lede">A Canadian investor's portfolio, explained in plain language: what the market did versus what you deposited, which days mattered, what currency conversion costs, and what was published about your holdings.</p>
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/Rishin05/portfolio-pulse">View the code on GitHub</a>
+    <a class="btn" href="assets/PortfolioPulse-demo.pbix" download>Download the demo report (.pbix)</a>
+  </div>
+  <p class="demo"><b>Demo data only.</b> Every figure on this page is synthetic and labelled DEMO. This is educational analytics, not financial advice, and the project never places trades.</p>
+</header>
+
+<main>
+  <ul class="numbers" aria-label="Project at a glance">
+    <li><b>400</b><span>automated tests</span></li>
+    <li><b>14 of 14</b><span>Power BI totals reconciled to SQL</span></li>
+    <li><b>62</b><span>DAX measures, none averaging percentages</span></li>
+    <li><b>8 steps</b><span>in the daily job, each isolated from the others</span></li>
+  </ul>
+
+  <h2>The report</h2>
+  <figure>
+    <img src="assets/overview.png" width="1444" height="794" alt="Overview page. Portfolio value at end 19,922.25 dollars, money in minus money out 6,250.00, investment gain 3,672.25, time-weighted return 29.57 percent. A line chart compares portfolio value with money put in, and a column chart splits monthly gains into market and currency.">
+    <figcaption><b>Overview.</b> The gap between the two lines is the investment gain. Deposits are never counted as performance: gain = value at end − value at start − net deposits.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/calendar.png" width="1444" height="794" alt="Calendar page. A table with one row per week and one column per weekday shows each day's return with a plus or minus sign; blue cells are up days and orange cells are down days. 108 up days, 85 down days, best day plus 4.59 percent, worst day minus 2.18 percent.">
+    <figcaption><b>Calendar.</b> One cell per trading day. The plus or minus sign carries the same meaning as the colour, so the page reads without colour vision.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/fx-fees.png" width="1444" height="794" alt="Currency conversion costs page. Two demo institutions cost 150 and 50 basis points versus the reference rate. Converting 1,000 costs 11.81 dollars. A table lists each fee with its source link and the date it was checked.">
+    <figcaption><b>FX and fees.</b> Conversion cost against a daily reference rate, in dollars and basis points, with a what-if amount. Every fee carries its source and the date it was checked.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/cash-flows.png" width="1444" height="794" alt="Cash flows page. Deposits and transfers in 12,750.00 dollars, withdrawals minus 2,849.42, dividends and interest 49.83, fees and tax minus 45.47, with a monthly column chart and a table of every account activity.">
+    <figcaption><b>Cash flows.</b> Money moved in or out, kept apart from income and costs inside the accounts.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/reconciliation.png" width="1444" height="794" alt="Reconciliation page. All 14 checks pass: each total computed by Power BI matches the same total computed directly from the SQL database, including portfolio value, net deposits, investment gain and time-weighted return.">
+    <figcaption><b>Reconciliation.</b> Each total is calculated twice, once by the report's measures and once straight from the database, and compared within a stated tolerance.</figcaption>
+  </figure>
+
+  <h2>How the numbers are calculated</h2>
+  <div class="grid">
+    <div class="card"><h3>Performance apart from deposits</h3><p>Daily return = gain ÷ (value at start + that day's flow). Time-weighted return compounds the daily returns, which removes the effect of when money was added.</p></div>
+    <div class="card"><h3>Summed dollars, never averaged percentages</h3><p>For several accounts, the report divides summed dollars by summed dollars. Averaging percentages would give a small account the same weight as a large one.</p></div>
+    <div class="card"><h3>Market versus currency</h3><p>Everything is converted to CAD at the Bank of Canada daily reference rate, and each day's gain is split into the part from prices and the part from the exchange rate.</p></div>
+    <div class="card"><h3>Timing, not causes</h3><p>News is shown as "published around this date": that trading day or the weekday before. The report never claims a headline moved a price.</p></div>
+  </div>
+
+  <h2>How it is built</h2>
+  <div class="flow" role="img" aria-label="Data flow: brokerage data through SnapTrade read-only, Bank of Canada rates, news and CSV imports load into SQLite; a performance engine computes results; a versioned CSV export feeds Power BI; a privacy gate and reconciliation check the output.">SnapTrade (read-only)  Bank of Canada rates  News (headlines + links)  CSV import
+          \                   |                    |                    /
+           +---------  Python loaders: idempotent, validated  ---------+
+                                      |
+                        SQLite  (10 numbered migrations)
+                                      |
+                     Performance engine (account + household, CAD)
+                                      |
+               Versioned CSV export (contract 1.6, 21 tables, tested)
+                         |                              |
+              Privacy gate (demo only)      SQL control totals
+                         |                              |
+                        Power BI project (model + report as text files)</div>
+  <div class="grid">
+    <div class="card"><h3>A daily job that degrades gracefully</h3><p>Eight steps run in isolation. One failing step is logged and rolled back, the rest still run, and the exit code tells the scheduler whether the run was clean, partial or failed.</p></div>
+    <div class="card"><h3>A data contract with tests</h3><p>The export Power BI reads is versioned. Adding a column is a minor bump; a rename is a major one. Tests fail if the files drift from the written contract.</p></div>
+    <div class="card"><h3>Privacy by construction</h3><p>The public report is built from a separate database that only ever holds synthetic data. An automated gate blocks publishing if any real account, link or secret-like column appears.</p></div>
+    <div class="card"><h3>Read-only access</h3><p>Brokerage data arrives through SnapTrade's own connection flow with read-only scope. The project stores no brokerage passwords and has no code path that can place a trade.</p></div>
+    <div class="card"><h3>Labels on every figure</h3><p>Each number is marked DEMO, reported, estimated, STALE or MISSING, and the worst label wins. Missing values are left blank, never shown as zero.</p></div>
+    <div class="card"><h3>A report you can diff</h3><p>The Power BI model and pages are stored as text (TMDL and PBIR), so every measure and visual change shows up in version control.</p></div>
+  </div>
+
+  <h2>Run it yourself</h2>
+  <p>Python 3.12 and Power BI Desktop. The demo needs no accounts or API keys.</p>
+  <div class="flow">pip install -r requirements.txt
+pip install -e .
+python -m pytest -q
+python -m portfolio_pulse demo
+python -m portfolio_pulse export</div>
+  <p style="margin-top:14px">Then open <code>powerbi/PortfolioPulse.pbip</code> and click Refresh. Full steps are in the <a href="https://github.com/Rishin05/portfolio-pulse#readme">README</a>.</p>
+</main>
+
+<footer>
+  <p>Built by Rishin Patel. Stack: Python, SQLite, pandas, pytest, Power BI (DAX, Power Query, TMDL), GitHub Actions.</p>
+  <p>Educational analytics only. Not financial advice. All figures shown are synthetic demo data.</p>
+</footer>
+</body>
+</html>

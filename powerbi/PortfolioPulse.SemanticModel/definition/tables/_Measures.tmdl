@@ -501,10 +501,12 @@ table _Measures
 		displayFolder: 7 Labels & quality
 		lineageTag: f5944dab-03fa-5708-a51e-f248a91284a8
 
-	/// The latest snapshot date in the data.
+	/// The latest snapshot date in the data. Says DEMO when every account is synthetic, so each page carries the label.
 	measure 'Data as of' =
-			"Data as of "
-			    & FORMAT ( CALCULATE ( MAX ( fact_perf_account_daily[as_of_date] ), REMOVEFILTERS ( dim_date ) ), "mmm d, yyyy" )
+			VAR AllDemo = CALCULATE ( MIN ( dim_account[is_demo] ), REMOVEFILTERS ( dim_account ) )
+			VAR LastDay = CALCULATE ( MAX ( fact_perf_account_daily[as_of_date] ), REMOVEFILTERS ( dim_date ) )
+			RETURN
+			    IF ( AllDemo = 1, "DEMO data (synthetic), as of ", "Data as of " ) & FORMAT ( LastDay, "mmm d, yyyy" )
 		displayFolder: 7 Labels & quality
 		lineageTag: 8d54cace-74cc-5958-87b0-086a39e45913
 

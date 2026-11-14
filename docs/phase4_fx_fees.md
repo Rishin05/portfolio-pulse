@@ -69,3 +69,5 @@ doesn't write `activity`). When real rows exist, apply the posted-rate formula t
 - The CLI will apply a percent fee to any date; only the export restricts dates to `date_checked` onward.
 - Bank posted rates change during the day; one quote per date and channel.
 - Demo FX rates aren't `boc_valet`, so a demo-only database exports `fact_fx_cost` header-only.
+## Demo-only databases (Phase 6)
+A DEMO institution normally uses Bank of Canada rates like any other. When the database holds no Bank of Canada rates at all (the public demo build), it falls back to the synthetic demo USD/CAD series so `fact_fx_cost` has rows. Those rows are labelled DEMO and the CLI says the reference rate is synthetic. Real institutions never use synthetic rates. Demo FX fees carry `effective_from` = the first demo date, so the demo shows the whole period.

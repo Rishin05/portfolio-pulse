@@ -1,9 +1,9 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "card_quality",
   "position": {
-    "x": 776,
-    "y": 112,
+    "x": 756.35467980295562,
+    "y": 74.482758620689651,
     "z": 5000,
     "height": 74,
     "width": 232,

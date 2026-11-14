@@ -1,5 +1,5 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
   "name": "slicer_amount",
   "position": {
     "x": 24,
@@ -28,8 +28,8 @@
               },
               "queryRef": "Amount to convert.Amount to convert",
               "nativeQueryRef": "Amount to convert",
-              "displayName": "Amount to convert (what-if)",
-              "active": true
+              "active": true,
+              "displayName": "Amount to convert (what-if)"
             }
           ]
         }
@@ -39,6 +39,13 @@
       "data": [
         {
           "properties": {
+            "numericStart": {
+              "expr": {
+                "Literal": {
+                  "Value": "1000D"
+                }
+              }
+            },
             "mode": {
               "expr": {
                 "Literal": {
@@ -68,6 +75,48 @@
                     }
                   }
                 }
+              }
+            }
+          }
+        }
+      ],
+      "general": [
+        {
+          "properties": {
+            "filter": {
+              "filter": {
+                "Version": 2,
+                "From": [
+                  {
+                    "Name": "a",
+                    "Entity": "Amount to convert",
+                    "Type": 0
+                  }
+                ],
+                "Where": [
+                  {
+                    "Condition": {
+                      "Comparison": {
+                        "ComparisonKind": 0,
+                        "Left": {
+                          "Column": {
+                            "Expression": {
+                              "SourceRef": {
+                                "Source": "a"
+                              }
+                            },
+                            "Property": "Amount to convert"
+                          }
+                        },
+                        "Right": {
+                          "Literal": {
+                            "Value": "1000D"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
               }
             }
           }

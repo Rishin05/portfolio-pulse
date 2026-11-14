@@ -208,6 +208,8 @@ def load_multi_broker(conn, seed: int, days: list, flows: list[dict], batch: str
         put("fee_schedule", {"fee_schedule_id": fid, "institution_id": inst_id, "fee_type": ftype,
                              "applies_to": applies, "rate_bps": bps, "flat_amount": flat,
                              "flat_currency": flat_cur,
+                             # demo FX fees apply across the whole demo period, so the FX page has a history
+                             "effective_from": dates[0].isoformat() if ftype == "fx_conversion" else None,
                              "source_url": f"https://example.com/demo-fees/{fid}",
                              "date_checked": FEES_CHECKED, "notes": notes, "is_demo": 1})
     stamp = {"quality_flag": "demo", "source_id": "synthetic", "batch_id": batch, "loaded_at_utc": now}
